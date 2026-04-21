@@ -131,11 +131,26 @@ def ai_pick_shot():
 
     # Hard: cheat by reading the player's grid directly, never misses
     if ai_difficulty == "hard":
-        while True:
-            r = random.randint(0, BOARD_SIZE - 1)
-            c = random.randint(0, BOARD_SIZE - 1)
-            if (r, c) not in ai_tried and grid[r][c] == "S":
-                return r, c
+        candidates = [
+            (r, c)
+            for r in range(BOARD_SIZE)
+            for c in range(BOARD_SIZE)
+            if (r, c) not in ai_tried and grid[r][c] == "S"
+        ]
+        if candidates:
+            return random.choice(candidates)
+
+        # Fallback if no unseen ship cells remain
+        fallback = [
+            (r, c)
+            for r in range(BOARD_SIZE)
+            for c in range(BOARD_SIZE)
+            if (r, c) not in ai_tried
+        ]
+        if fallback:
+            return random.choice(fallback)
+
+        return None
 
     # Easy: purely random, no memory of hits
     elif ai_difficulty == "easy":
@@ -190,6 +205,11 @@ def ai_take_turn():
     all_sunk_result = False
     ship_idx = get_ship_index(row, col)
     anim_val = 0 # Value to queue animation
+
+    shot = ai_pick_shot()
+    if shot is None:
+        return None, None, False, False, all_ships_sunk()
+    row, col = shot
 
     if hit:
         grid[row][col] = "X"
@@ -596,6 +616,26 @@ def place_ship(row, col, size, orientation):
     print(f"Ship of size {size} placed at {cells}")
     return True
 
+def load_ships_from_layout(ship_layouts):
+    """
+    ship_layouts: list of dicts like
+    [{"row": 0, "col": 0, "size": 3, "orientation": "H"}, ...]
+    """
+    global grid, ships
+
+    grid = [["." for _ in range(BOARD_SIZE)] for _ in range(BOARD_SIZE)]
+    ships = []
+
+    for ship in ship_layouts:
+        ok = place_ship(
+            ship["row"],
+            ship["col"],
+            ship["size"],
+            ship["orientation"]
+        )
+        if not ok:
+            raise ValueError(f"Invalid ship layout: {ship}")
+
 def submit_placement():
     global ships_locked
 
@@ -798,6 +838,17 @@ def receive_shot(row, col):
 
     if (row, col) in shots_received_hit or (row, col) in shots_received_miss:
         print("Repeat shot received.")
+
+        msg = {
+            "type": "hit_status",
+            "row": row,
+            "col": col,
+            "status": False,
+            "sunk": False,
+            "ship_coords": None,
+            "all_sunk": all_ships_sunk()
+        }
+        _send(msg)
         return
 
     hit = (grid[row][col] == "S")
@@ -986,10 +1037,12 @@ def handle_multi_bomb_result(results, sunk_ships, all_sunk):
     if len(sunk_ships) > 0:
         anim_play = 3
 
-    top_r = results[4]
-    r = top_r["row"]
-    c = top_r["col"]
-    add_animation(anim_play,(r,c),1,multi_bomb=True)
+    if results:
+        center_idx = len(results) // 2
+        center_result = results[center_idx]
+        r = center_result["row"]
+        c = center_result["col"]
+        add_animation(anim_play,(r,c),1,multi_bomb=True)
 
 # Helper: hit counts per ship
 def ship_hit_counts():
@@ -1127,6 +1180,11 @@ def handle_server_message(message):
         p_id = message["player_id"]
         handle_turn_timeout(p_id)
 
+    elif mtype == "opponent_disconnected":
+        print("BACKEND: Opponent disconnected.")
+        GAME_STATE = "MAIN_MENU"
+        your_turn = False
+
     elif mtype == "radar_scan":
         receive_radar_scan(message["center_row"], message["center_col"])
 
@@ -1142,20 +1200,28 @@ def handle_server_message(message):
         print(f"Unknown Message: {message}")
 
 def listen_to_server():
+    global sock
     buffer = ""
     message = ""
+
     while True:
         try:
             data = sock.recv(4096).decode()
+            if not data:
+                print("BACKEND: Server connection closed.")
+                break
+
             buffer += data
-            if data:
-                message = json.loads(data)
-                
-                while "\n" in buffer:
-                    line, buffer = buffer.split("\n", 1)
-                    message = json.loads(line)
-                    handle_server_message(message)
-        except:
+
+            while "\n" in buffer:
+                line, buffer = buffer.split("\n", 1)
+                if not line.strip():
+                    continue
+                message = json.loads(line)
+                handle_server_message(message)
+
+        except Exception as e:
+            print("BACKEND listen_to_server error:", e)
             break
 
 """

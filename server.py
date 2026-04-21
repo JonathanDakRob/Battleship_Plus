@@ -23,9 +23,13 @@ def send(conn, msg):
     conn.sendall((json.dumps(msg) + "\n").encode())
 
 def handle_message(conn, player_index, message):
-    opponent = clients[1 - player_index]
+    global player1_locked, player2_locked, GAME_OVER, winner
 
-    global  player1_locked, player2_locked, GAME_OVER, winner
+    if len(clients) < 2:
+        print("SERVER: Cannot relay message; opponent is not connected.")
+        return
+
+    opponent = clients[1 - player_index]
 
     if message["type"] == "game_state":
         state = message["state"]
@@ -105,7 +109,7 @@ def handle_message(conn, player_index, message):
 
     elif message["type"] == "turn_timeout":
         # This player's turn expired, so switch turns for both clients.
-        print(f"SERVER: Player {message["player_id"]} turn timed out")
+        print(f"SERVER: Player {message['player_id']} turn timed out")
         
         send(opponent, message)
         send(conn, message)
@@ -144,25 +148,39 @@ def handle_client(player_index):
             data = conn.recv(4096).decode()
             if not data:
                 print("SERVER ERROR: Did not receive data")
-                running = False
                 break
 
             buffer += data
 
             while "\n" in buffer:
                 line, buffer = buffer.split("\n", 1)
+                if not line.strip():
+                    continue
                 message = json.loads(line)
-                print(f"SERVER: Received from Player {player_index}: {message}")
+                print(f"SERVER: Received from Player {player_index + 1}: {message}")
                 handle_message(conn, player_index, message)
-
 
         except Exception as e:
             print("SERVER: Client disconnected:", e)
             break
 
-    conn.close()
+    # Clean up
+    try:
+        conn.close()
+    except:
+        pass
+
     if conn in clients:
         clients.remove(conn)
+
+    # Notify the remaining client, if any
+    for other in clients[:]:
+        try:
+            send(other, {"type": "opponent_disconnected"})
+        except:
+            pass
+
+    running = False
 
 def main():
     global clients, player1_locked, player2_locked, running

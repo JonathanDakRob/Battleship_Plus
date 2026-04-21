@@ -207,10 +207,32 @@ def create_ships(num_ships):
 
         ships_start_y += (ship_length * CELL_SIZE) + 10
 
+def sync_backend_placement_from_ui():
+    layout = []
+
+    for ship in ships:
+        if not ship.placed or ship.grid_row is None or ship.grid_col is None:
+            return False
+
+        layout.append({
+            "row": ship.grid_row,
+            "col": ship.grid_col,
+            "size": ship.length,
+            "orientation": ship.orientation
+        })
+
+    try:
+        backend.load_ships_from_layout(layout)
+        return True
+    except ValueError as e:
+        print("PLACEMENT SYNC ERROR:", e)
+        return False
+
 def reset_local_ui_state():
     global ships_selected, started_running_game, multi_bomb_mode, ships, game_mode
     global match_start_time, turn_start_time, current_turn_time_left
     global turn_timeout_sent, last_turn_state, ai_turn_due_time
+    global radar_mode, radar_flash
 
     ships_selected = False
     started_running_game = False
@@ -604,9 +626,12 @@ def draw_status_panel():
     else:
         player_label = "Single Player"
 
+    turn_text = "Your Turn" if backend.your_turn else "Opponent's Turn"
+    radar_text = "USED" if backend.radar_used else ("ARMED" if radar_mode else "READY")
+
     lines = [
-        f"{player_label}",
-        f"{'Your Turn' if backend.your_turn else 'Opponent\'s Turn'}",
+        player_label,
+        turn_text,
         "",
         f"Multi-bomb (M): {multi_bomb_status}",
         f"Radar (R): {'USED' if backend.radar_used else 'ARMED' if radar_mode else 'READY'}",
@@ -1038,12 +1063,7 @@ while running:
 
                     elif LOCK_BUTTON_RECT.collidepoint(event.pos):
                         all_valid = all(s.placed for s in ships)
-                        if all_valid:
-                            backend.ships.clear()
-                            for s in ships:
-                                backend.ships.append(
-                                    backend.compute_ship_cells(s.grid_row, s.grid_col, s.length, s.orientation)
-                            )
+                        if all_valid and sync_backend_placement_from_ui():
                             backend.ai_place_ships(len(ships))
                             backend.your_turn = True
                             backend.update_game_state("RUNNING_GAME")
@@ -1063,10 +1083,7 @@ while running:
 
                     elif LOCK_BUTTON_RECT.collidepoint(event.pos):
                         all_valid = all(s.placed for s in ships)
-                        if all_valid:
-                            backend.ships.clear()
-                            for s in ships:
-                                backend.ships.append(backend.compute_ship_cells(s.grid_row, s.grid_col, s.length, s.orientation)) #
+                        if all_valid and sync_backend_placement_from_ui():
                             backend.submit_placement()
                             backend.update_game_state("WAITING_FOR_OPPONENT")
 
@@ -1270,10 +1287,10 @@ while running:
                     backend.reset_game()
                     reset_local_ui_state()
 
-    # # ------------------ TIMER UPDATES ------------------
-    # if backend.GAME_STATE == "RUNNING_GAME":
-    #     update_running_game_timers()
-    #     game_state = backend.GAME_STATE
+    #  ------------------ TIMER UPDATES ------------------
+    if backend.GAME_STATE == "RUNNING_GAME":
+        update_running_game_timers()
+        game_state = backend.GAME_STATE
 
     # ------------------ SINGLE PLAYER AI AUTO-TURN ------------------
     if backend.GAME_STATE == "RUNNING_GAME" and backend.GAME_MODE == 1:
