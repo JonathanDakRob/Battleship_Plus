@@ -25,6 +25,8 @@ def send(conn, msg):
 def handle_message(conn, player_index, message):
     global player1_locked, player2_locked, GAME_OVER, winner
 
+    # Do not try to relay gameplay messages unless both player sockets still
+    # exist. This avoids index errors and bad relays after a disconnect.
     if len(clients) < 2:
         print("SERVER: Cannot relay message; opponent is not connected.")
         return
@@ -107,6 +109,8 @@ def handle_message(conn, player_index, message):
     elif message["type"] == "radar_result":
         send(opponent, message)
 
+    # Broadcast the timeout event to both clients so they can stay synchronized
+    # on whose turn was forfeited.
     elif message["type"] == "turn_timeout":
         # This player's turn expired, so switch turns for both clients.
         print(f"SERVER: Player {message['player_id']} turn timed out")
@@ -152,6 +156,8 @@ def handle_client(player_index):
 
             buffer += data
 
+            # Messages are newline-delimited JSON. Buffer partial socket reads until a
+            # complete message arrives, then process one message at a time.
             while "\n" in buffer:
                 line, buffer = buffer.split("\n", 1)
                 if not line.strip():
@@ -173,7 +179,8 @@ def handle_client(player_index):
     if conn in clients:
         clients.remove(conn)
 
-    # Notify the remaining client, if any
+    # Notify the remaining client that the session is no longer valid so the
+    # frontend can leave the multiplayer match cleanly.
     for other in clients[:]:
         try:
             send(other, {"type": "opponent_disconnected"})

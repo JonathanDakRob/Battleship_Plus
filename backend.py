@@ -140,7 +140,8 @@ def ai_pick_shot():
         if candidates:
             return random.choice(candidates)
 
-        # Fallback if no unseen ship cells remain
+        # If no unseen ship cells remain, fall back to any legal untried cell so
+        # hard mode never gets stuck in an infinite search loop late in the game.
         fallback = [
             (r, c)
             for r in range(BOARD_SIZE)
@@ -616,6 +617,9 @@ def place_ship(row, col, size, orientation):
     print(f"Ship of size {size} placed at {cells}")
     return True
 
+# Reconstruct the backend board and ships list from a validated placement
+# layout sent by board.py. This gives gameplay logic one authoritative ship
+# representation instead of relying on temporary drag-and-drop state.
 def load_ships_from_layout(ship_layouts):
     """
     ship_layouts: list of dicts like
@@ -836,6 +840,8 @@ def receive_shot(row, col):
     # Applies opponent shot to our grid and sends hit_status back for their UI.
     global shots_received_hit, shots_received_miss, grid, animations
 
+    # Always reply to duplicate attacks instead of silently ignoring them.
+    # This prevents the attacker from hanging while waiting for a result.
     if (row, col) in shots_received_hit or (row, col) in shots_received_miss:
         print("Repeat shot received.")
 
@@ -1180,6 +1186,8 @@ def handle_server_message(message):
         p_id = message["player_id"]
         handle_turn_timeout(p_id)
 
+    # Return the client to a safe state if the other player drops so the UI
+    # does not stay stuck in a multiplayer match with no opponent.
     elif mtype == "opponent_disconnected":
         print("BACKEND: Opponent disconnected.")
         GAME_STATE = "MAIN_MENU"
@@ -1199,6 +1207,8 @@ def handle_server_message(message):
     else:
         print(f"Unknown Message: {message}")
 
+# Read newline-delimited JSON messages from the socket buffer.
+# TCP can split or combine packets, so only parse complete lines.
 def listen_to_server():
     global sock
     buffer = ""

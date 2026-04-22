@@ -207,6 +207,9 @@ def create_ships(num_ships):
 
         ships_start_y += (ship_length * CELL_SIZE) + 10
 
+# Rebuild the authoritative backend ship layout from the draggable UI ships
+# right before LOCK SHIPS. This prevents the frontend placement state and
+# backend hit/sunk logic from drifting out of sync.
 def sync_backend_placement_from_ui():
     layout = []
 
@@ -228,6 +231,8 @@ def sync_backend_placement_from_ui():
         print("PLACEMENT SYNC ERROR:", e)
         return False
 
+# Reset transient frontend-only state so a new game does not inherit
+# leftover radar previews, timers, or pending AI turn delays.
 def reset_local_ui_state():
     global ships_selected, started_running_game, multi_bomb_mode, ships, game_mode
     global match_start_time, turn_start_time, current_turn_time_left
@@ -626,6 +631,8 @@ def draw_status_panel():
     else:
         player_label = "Single Player"
 
+    # Build these labels separately to keep the status panel readable and avoid
+    # fragile inline f-string expressions for turn/radar state text.
     turn_text = "Your Turn" if backend.your_turn else "Opponent's Turn"
     radar_text = "USED" if backend.radar_used else ("ARMED" if radar_mode else "READY")
 
@@ -1061,6 +1068,9 @@ while running:
                         backend.grid = [["." for _ in range(GRID_SIZE)] for _ in range(GRID_SIZE)]
                         create_ships(len(ships))
 
+                    # Only start the match after every visual ship has been converted into
+                    # canonical backend state. This keeps ship placement validation and
+                    # gameplay damage logic using the same source of truth.
                     elif LOCK_BUTTON_RECT.collidepoint(event.pos):
                         all_valid = all(s.placed for s in ships)
                         if all_valid and sync_backend_placement_from_ui():
@@ -1081,6 +1091,9 @@ while running:
                         for ship in ships:
                             create_ships(len(ships))
 
+                    # Only start the match after every visual ship has been converted into
+                    # canonical backend state. This keeps ship placement validation and
+                    # gameplay damage logic using the same source of truth.
                     elif LOCK_BUTTON_RECT.collidepoint(event.pos):
                         all_valid = all(s.placed for s in ships)
                         if all_valid and sync_backend_placement_from_ui():
@@ -1288,6 +1301,8 @@ while running:
                     reset_local_ui_state()
 
     #  ------------------ TIMER UPDATES ------------------
+    # Keep the turn timer running once per main loop while gameplay is active.
+    # This makes timeout behavior consistent across single-player and multiplayer.
     if backend.GAME_STATE == "RUNNING_GAME":
         update_running_game_timers()
         game_state = backend.GAME_STATE
