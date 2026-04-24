@@ -80,10 +80,8 @@ def remove_animation():
 def set_wait_for_animation(wait):
     global wait_for_animation
     if wait in (True,False):
-        print(f"Wait 1: {wait}")
         if wait_for_animation != wait:
             wait_for_animation = wait
-            print(f"Wait 2: {wait}")
     else:
         print("BACKEND: Invalid Wait Value")
     

@@ -12,12 +12,17 @@ import random
 # ------------------ CONFIG ------------------
 os.environ['SDL_VIDEO_CENTERED'] = '1' 
 
-GRID_SIZE = 10
-CELL_SIZE = 22    # Shrinks the squares so the window isn't too tall
+GRID_SIZE = 10 # Number of rows and columns on the board
+CELL_SIZE = 22 # Shrinks the squares so the window isn't too tall
 LABEL_MARGIN = 20
 GRID_PADDING = 40
-WINDOW_WIDTH = (GRID_SIZE * CELL_SIZE) + (2 * GRID_PADDING) + 180
-WINDOW_HEIGHT = (GRID_SIZE * CELL_SIZE * 2) + 160
+WINDOW_WIDTH = int(((GRID_SIZE * CELL_SIZE) + (2 * GRID_PADDING)) * 1.67)
+WINDOW_HEIGHT = int((GRID_SIZE * CELL_SIZE * 2) * 1.5)
+
+# Font size for START2P font based on window width for consistency
+LARGE_FONT_SIZE = WINDOW_WIDTH // 15
+MEDIUM_FONT_SIZE = WINDOW_WIDTH // 20
+SMALL_FONT_SIZE = WINDOW_WIDTH // 25
 
 BG_COLOR = (30, 30, 30)
 GRID_COLOR = (0, 0, 128)
@@ -47,7 +52,7 @@ EASY_RECT   = pygame.Rect(WINDOW_WIDTH//2 - 100, WINDOW_HEIGHT//2 - 90, 200, 50)
 MEDIUM_RECT = pygame.Rect(WINDOW_WIDTH//2 - 100, WINDOW_HEIGHT//2 - 20, 200, 50)
 HARD_RECT   = pygame.Rect(WINDOW_WIDTH//2 - 100, WINDOW_HEIGHT//2 + 50, 200, 50)
 
-TURN_TIME_LIMIT = 30 # Seconds per turn
+TURN_TIME_LIMIT = 3 # Seconds per turn
 current_turn_time_left = TURN_TIME_LIMIT
 match_timer_rect_width = 80
 match_timer_rect_height = 30
@@ -262,8 +267,8 @@ The following functions use PyGame to draw the frontend/UI of the game.
 They are called during the main gameplay loop and draw things depending on the Game State.
 '''
 def draw_main_menu(mouse_pos):
-    font = pygame.font.Font("fonts\\PressStart2P-Regular.ttf", 30)
-    button_font = pygame.font.Font("fonts\\PressStart2P-Regular.ttf", 20)
+    font = pygame.font.Font("fonts\\PressStart2P-Regular.ttf", LARGE_FONT_SIZE)
+    button_font = pygame.font.Font("fonts\\PressStart2P-Regular.ttf", SMALL_FONT_SIZE)
 
     # single_rect = pygame.Rect(WINDOW_WIDTH//2 - 150, WINDOW_HEIGHT//2 - 80, 300, 60)
     # multi_rect = pygame.Rect(WINDOW_WIDTH//2 - 150, WINDOW_HEIGHT//2 + 20, 300, 60)
@@ -300,8 +305,8 @@ def draw_main_menu(mouse_pos):
 
 def draw_difficulty_selection(mouse_pos):
     screen.fill(BG_COLOR)
-    font = pygame.font.Font("fonts\\PressStart2P-Regular.ttf", 30)
-    btn_font = pygame.font.Font("fonts\\PressStart2P-Regular.ttf", 20)
+    font = pygame.font.Font("fonts\\PressStart2P-Regular.ttf", int(LARGE_FONT_SIZE * 0.9))
+    btn_font = pygame.font.Font("fonts\\PressStart2P-Regular.ttf", SMALL_FONT_SIZE)
     title = font.render("Select Difficulty", True, (255, 255, 255))
     screen.blit(title, (WINDOW_WIDTH//2 - title.get_width()//2, WINDOW_HEIGHT//4))
 
@@ -318,7 +323,7 @@ def draw_difficulty_selection(mouse_pos):
 
 def draw_message(message):
     screen.fill(BG_COLOR)
-    font = pygame.font.Font("fonts\\PressStart2P-Regular.ttf", 30)
+    font = pygame.font.Font("fonts\\PressStart2P-Regular.ttf", LARGE_FONT_SIZE)
     title = font.render(message,True,(255,255,255))
 
     screen.blit(
@@ -344,8 +349,8 @@ def draw_button(mouse_pos, text="BACK", color=(180, 50, 50), border_rad=0):
 def draw_waiting_for_player(message, number=0):
     screen.fill(BG_COLOR)
 
-    font = pygame.font.Font("fonts\\PressStart2P-Regular.ttf", 20)
-    small_font = pygame.font.Font("fonts\\PressStart2P-Regular.ttf", 12)
+    font = pygame.font.Font("fonts\\PressStart2P-Regular.ttf", SMALL_FONT_SIZE)
+    small_font = pygame.font.Font("fonts\\PressStart2P-Regular.ttf", SMALL_FONT_SIZE // 2)
     
     if number == 0:
         title = font.render(f"Waiting for Other Player...", True, (255, 255, 255))
@@ -368,13 +373,13 @@ def draw_waiting_for_player(message, number=0):
 def draw_ship_selection():
     screen.fill(BG_COLOR)
 
-    font = pygame.font.Font("fonts\\PressStart2P-Regular.ttf", CELL_SIZE//2 + 5)
-    small_font = pygame.font.Font("fonts\\PressStart2P-Regular.ttf", CELL_SIZE//2)
+    font = pygame.font.Font("fonts\\PressStart2P-Regular.ttf", int(SMALL_FONT_SIZE * 0.8))
+    small_font = pygame.font.Font("fonts\\PressStart2P-Regular.ttf", int(SMALL_FONT_SIZE * 0.45))
 
     title_text = font.render("Select Number of Ships (1 - 5)", True, (255, 255, 255))
     instruction_text = small_font.render("Press a number key 1, 2, 3, 4, or 5", True, (200, 200, 200))
 
-    screen.blit(title_text, (WINDOW_WIDTH // 2 - title_text.get_width() // 2, (WINDOW_HEIGHT // 2) - (2 * instruction_text.get_height())))
+    screen.blit(title_text, (WINDOW_WIDTH // 2 - title_text.get_width() // 2, (WINDOW_HEIGHT // 2) - (3 * instruction_text.get_height())))
     screen.blit(instruction_text, (WINDOW_WIDTH // 2 - instruction_text.get_width() // 2, WINDOW_HEIGHT // 2))
 
 
@@ -383,8 +388,8 @@ def draw_ship_selection():
 def draw_game_over(winner):
     screen.fill(BG_COLOR)
 
-    font = pygame.font.Font("fonts\\PressStart2P-Regular.ttf", CELL_SIZE)
-    small_font = pygame.font.Font("fonts\\PressStart2P-Regular.ttf", CELL_SIZE - 5)
+    font = pygame.font.Font("fonts\\PressStart2P-Regular.ttf", int(LARGE_FONT_SIZE))
+    small_font = pygame.font.Font("fonts\\PressStart2P-Regular.ttf", int(SMALL_FONT_SIZE * 1.2))
 
     title = title = font.render(f"GAME OVER", True, (255, 255, 255))
     subtitle = ""
@@ -652,7 +657,7 @@ def draw_status_panel():
     ]
 
     # Timer at the bottom of the screen
-    timer_font = pygame.font.Font("fonts\\PressStart2P-Regular.ttf", 16)
+    timer_font = pygame.font.Font("fonts\\PressStart2P-Regular.ttf", MEDIUM_FONT_SIZE)
     timer_surf = timer_font.render(format_seconds(current_turn_time_left), True, (255,255,255))
     screen.blit(timer_surf, BUTTON_RECT.inflate(12,12))
 
@@ -698,15 +703,14 @@ def draw_time_ran_out(lost_turn):
     # Player ran out of time, other player's turn
     global time_out_start
     duration = 1.8 # display message for this many seconds
-    font = pygame.font.Font("fonts\\PressStart2P-Regular.ttf", 38)
+    font = pygame.font.Font("fonts\\PressStart2P-Regular.ttf", int(LARGE_FONT_SIZE * 1.2))
     font.set_bold(True)
-    small_font = pygame.font.Font("fonts\\PressStart2P-Regular.ttf", 22)
+    small_font = pygame.font.Font("fonts\\PressStart2P-Regular.ttf", MEDIUM_FONT_SIZE)
 
     title = font.render("TIME RAN OUT", True, (139, 0, 0))
     subtitle = None
 
     elapsed = time.monotonic() - time_out_start
-    print (f"DRAW_TIME_RAN_OUT: {elapsed} elapsed")
 
     if (elapsed <= duration):
 
@@ -804,7 +808,7 @@ def update_running_game_timers():
         if backend.GAME_MODE == 1:
             if backend.your_turn:
                 backend.your_turn = False
-                trigger_animation(5, (-1,-1), 1)
+                trigger_animation(5, (-1,-1), 0)
                 reset_turn_timer()
 
         # Multiplayer: notify server
@@ -890,7 +894,10 @@ def draw_animation(screen):
         
         if anim_type == 5:
             # Timed out animation: Board argument represents the player_id who timed out
-            if anim["board"] in (1,2):
+            if anim["board"] == 0:
+                draw_time_ran_out(True)
+                time_out_start = anim["start"]
+            elif anim["board"] in (1,2):
                 draw_time_ran_out(anim["board"] == backend.player_id)
                 time_out_start = anim["start"]
             else:
