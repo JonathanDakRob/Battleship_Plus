@@ -13,7 +13,7 @@ import random
 os.environ['SDL_VIDEO_CENTERED'] = '1' 
 
 GRID_SIZE = 10 # Number of rows and columns on the board
-CELL_SIZE = 22 # Shrinks the squares so the window isn't too tall
+CELL_SIZE = 25 # Shrinks the squares so the window isn't too tall
 LABEL_MARGIN = 20
 GRID_PADDING = 40
 WINDOW_WIDTH = int(((GRID_SIZE * CELL_SIZE) + (2 * GRID_PADDING)) * 1.67)
@@ -52,7 +52,7 @@ EASY_RECT   = pygame.Rect(WINDOW_WIDTH//2 - 100, WINDOW_HEIGHT//2 - 90, 200, 50)
 MEDIUM_RECT = pygame.Rect(WINDOW_WIDTH//2 - 100, WINDOW_HEIGHT//2 - 20, 200, 50)
 HARD_RECT   = pygame.Rect(WINDOW_WIDTH//2 - 100, WINDOW_HEIGHT//2 + 50, 200, 50)
 
-TURN_TIME_LIMIT = 3 # Seconds per turn
+TURN_TIME_LIMIT = 30 # Seconds per turn
 current_turn_time_left = TURN_TIME_LIMIT
 match_timer_rect_width = 80
 match_timer_rect_height = 30
@@ -1202,7 +1202,7 @@ while running:
                     elif time.monotonic() >= ai_turn_due_time and not backend.wait_for_animation:
                         # Give the AI a random chance to use this one-time multi-bomb
                         if backend.ai_should_use_multi_bomb():
-                            center_row, center_col, all_sunk = backend.ai_take_multi_bomb_turn()
+                            center_row, center_col, hit, all_sunk = backend.ai_take_multi_bomb_turn()
                             print(f"AI multi-bombed around ({center_row}, {center_col})")
                         else:
                             row, col, hit, sunk, all_sunk = backend.ai_take_turn()
