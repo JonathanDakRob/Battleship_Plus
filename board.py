@@ -646,7 +646,7 @@ def draw_status_panel():
         turn_text,
         "",
         f"Multi-bomb (M): {multi_bomb_status}",
-        f"Radar (R): {'USED' if backend.radar_used else 'ARMED' if radar_mode else 'READY'}",
+        f"Radar (R): {radar_text}",
         "",
         f"Ships sunk: {backend.get_num_ships_sunk()}/{len(backend.ships)}",
         f"Enemy ships sunk: {backend.opponent_ships_sunk}/{len(backend.ships)}",
@@ -1093,10 +1093,11 @@ while running:
                 if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     if RESET_BUTTON_RECT.collidepoint(event.pos):
                         print("Resetting Ships...")
-                        # Clear the backend grid
+
+                        # Recreate the draggable ship set once after clearing the placement board.
+                        # Rebuilding it inside a loop is redundant and can cause confusing reset behavior.
                         backend.grid = [["." for _ in range(GRID_SIZE)] for _ in range(GRID_SIZE)]
-                        for ship in ships:
-                            create_ships(len(ships))
+                        create_ships(len(ships))
 
                     # Only start the match after every visual ship has been converted into
                     # canonical backend state. This keeps ship placement validation and
@@ -1396,7 +1397,8 @@ while running:
         draw_waiting_for_player(f"Player {opponent_id} is still placing their ships", opponent_id)
 
     elif game_state == "RUNNING_GAME":
-        update_running_game_timers()  
+        # Update turn timers once per main loop before drawing. Keeping timeout logic
+        # in one place avoids duplicate turn-loss checks in the same frame.
         draw_clear_screen(screen)
         draw_coordinates(GRID_PADDING, top_grid_y)
         draw_coordinates(GRID_PADDING, bottom_grid_y)

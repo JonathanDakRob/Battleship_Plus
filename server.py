@@ -25,6 +25,12 @@ def send(conn, msg):
 def handle_message(conn, player_index, message):
     global player1_locked, player2_locked, GAME_OVER, winner
 
+    # Validate message shape before dispatching. The server is mostly a relay,
+    # but one malformed payload should not break the whole match thread.
+    if not isinstance(message, dict) or "type" not in message:
+        print(f"SERVER: Ignoring malformed message: {message}")
+        return
+
     # Do not try to relay gameplay messages unless both player sockets still
     # exist. This avoids index errors and bad relays after a disconnect.
     if len(clients) < 2:

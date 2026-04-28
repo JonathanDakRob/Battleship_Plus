@@ -196,7 +196,14 @@ def ai_take_turn():
     The AI shoots at the player's grid.
     Returns (row, col, hit, sunk, all_sunk) so board.py can update the display.
     """
-    row, col = ai_pick_shot()
+    # Pick exactly one AI target per turn and use that same cell for hit detection,
+    # board updates, targeting memory, and animation. This prevents the AI from
+    # evaluating one square but marking a different one.
+    shot = ai_pick_shot()
+    if shot is None:
+        return None, None, False, False, all_ships_sunk()
+
+    row, col = shot
     ai_tried.add((row, col))
 
     hit = (grid[row][col] == "S")
@@ -205,14 +212,10 @@ def ai_take_turn():
     ship_idx = get_ship_index(row, col)
     anim_val = 0 # Value to queue animation
 
-    shot = ai_pick_shot()
-    if shot is None:
-        return None, None, False, False, all_ships_sunk()
-    row, col = shot
-
     if hit:
         grid[row][col] = "X"
         shots_received_hit.append((row, col))
+
         sunk = check_ship_sunk(ship_idx)
         if sunk:
             anim_val = 3
@@ -227,6 +230,7 @@ def ai_take_turn():
 
     ai_receive_result(row, col, hit, sunk)
     add_animation(anim_val, (row, col), 2)
+
     return row, col, hit, sunk, all_sunk_result
 
 def ai_take_multi_bomb_turn():
@@ -899,7 +903,7 @@ def receive_shot(row, col):
     }
     _send(msg)
 
-def receive_multi_bomb(cells):
+def receive_multi_bomb(cells, center_row, center_col):
     # This function is called on the defending player's side.
     # It applies the full 3x3 attack to the local board and
     # sends one combined result message back to the attacker.
@@ -966,7 +970,10 @@ def receive_multi_bomb(cells):
                 "status": "miss"
             })
 
-    add_animation(anim_play, cells[4], 2, multi_bomb=True)
+    # Use the original clicked center for the 3x3 animation. Edge and corner
+    # attacks can produce fewer than 9 valid cells, so indexing into cells[4]
+    # is not safe. Edge and corner multi-bombs may have fewer than 5 valid cells.
+    add_animation(anim_play, (center_row, center_col), 2, multi_bomb=True)
 
     # After all 3x3 cells are processed, check if the defender has lost.
     all_sunk = all_ships_sunk()
@@ -1149,7 +1156,9 @@ def handle_server_message(message):
         cells = []
         for pair in message["cells"]:
             cells.append((pair[0], pair[1]))
-        receive_multi_bomb(cells)
+
+        # Fixed for multiplayer defender-side multi-bomb animation crash.
+        receive_multi_bomb(cells, message["center_row"], message["center_col"])
 
     elif mtype == "multi_bomb_result":
         # Attacker receives the final combined outcome of the 3x3 attack.
