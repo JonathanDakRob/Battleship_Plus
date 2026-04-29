@@ -1422,12 +1422,12 @@ while running:
                     backend.update_game_state("SELECT_SHIPS")
         
                 elif MEDIUM_RECT.collidepoint(event.pos):
-                    button_click_times[id(MEDIUM_RECT)]
+                    button_click_times[id(MEDIUM_RECT)] = time.monotonic()
                     backend.ai_difficulty = "medium"
                     backend.update_game_state("SELECT_SHIPS")
         
                 elif HARD_RECT.collidepoint(event.pos):
-                    button_click_times[id(HARD_RECT)]
+                    button_click_times[id(HARD_RECT)] = time.monotonic()
                     backend.ai_difficulty = "hard"
                     backend.update_game_state("SELECT_SHIPS")
                 
