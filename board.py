@@ -80,6 +80,10 @@ clock = pygame.time.Clock()
 animations = [] # Stores active animations
 animation_playing = False
 
+# ------------------ BUTTON ANIMATION STATE ------------------
+# Maps a pygame.Rect id -> timestamp of last click (for click-pulse effect)
+button_click_times = {}
+
 # ------------------ CELL CLASS ------------------
 class Cell:
     def __init__(self, rect, grid_id, row, col):
@@ -273,6 +277,59 @@ PyGame Drawing Functions:
 The following functions use PyGame to draw the frontend/UI of the game.
 They are called during the main gameplay loop and draw things depending on the Game State.
 '''
+
+def draw_animated_button(surface, rect, base_color, text, font, mouse_pos, click_time=None):
+    """Draw a menu button with hover-scale, click-pulse, and shimmer animation."""
+    now = time.monotonic()
+    hovered = rect.collidepoint(mouse_pos)
+
+    scale = 1.0
+    click_age = (now - click_time) if click_time is not None else 999
+    if click_age < 0.25:
+        t = click_age / 0.25
+        scale = 1.0 - 0.07 * math.sin(math.pi * t)
+    elif hovered:
+        scale = 1.06
+
+    sw = int(rect.width * scale)
+    sh = int(rect.height * scale)
+    scaled_rect = pygame.Rect(0, 0, sw, sh)
+    scaled_rect.center = rect.center
+
+    if click_age < 0.25:
+        t = click_age / 0.25
+        blend = max(0.0, 1.0 - t * 2)
+        color = tuple(min(255, int(c + (255 - c) * blend * 0.45)) for c in base_color)
+    elif hovered:
+        color = tuple(min(255, c + 35) for c in base_color)
+    else:
+        color = base_color
+
+    pygame.draw.rect(surface, color, scaled_rect, border_radius=8)
+
+    if hovered and click_age >= 0.25:
+        shimmer_speed = 1.2
+        shimmer_width = int(sw * 0.25)
+        progress = (now * shimmer_speed) % 1.0
+        sx = scaled_rect.left + int(progress * (sw + shimmer_width)) - shimmer_width
+        shimmer_surf = pygame.Surface((shimmer_width, sh), pygame.SRCALPHA)
+        for px in range(shimmer_width):
+            alpha = int(60 * math.sin(math.pi * px / shimmer_width))
+            pygame.draw.line(shimmer_surf, (255, 255, 255, alpha), (px, 0), (px, sh))
+        clip_rect = surface.get_clip()
+        surface.set_clip(scaled_rect)
+        surface.blit(shimmer_surf, (sx, scaled_rect.top))
+        surface.set_clip(clip_rect)
+
+    border_color = (255, 255, 255) if hovered else (200, 200, 200)
+    border_w = 3 if hovered else 1
+    pygame.draw.rect(surface, border_color, scaled_rect, border_w, border_radius=8)
+
+    text_surf = font.render(text, True, (255, 255, 255))
+    tx = scaled_rect.centerx - text_surf.get_width() // 2
+    ty = scaled_rect.centery - text_surf.get_height() // 2
+    surface.blit(text_surf, (tx, ty))
+
 def draw_main_menu(mouse_pos):
     font = pygame.font.Font(resource_path("fonts\\PressStart2P-Regular.ttf"), LARGE_FONT_SIZE)
     button_font = pygame.font.Font(resource_path("fonts\\PressStart2P-Regular.ttf"), SMALL_FONT_SIZE)
@@ -283,38 +340,42 @@ def draw_main_menu(mouse_pos):
     sp_color = (70,130,180)
     mp_color = (70,130,180)
 
-    if SINGLE_PLAYER_RECT.collidepoint(mouse_pos):
-        sp_color = (100,160,210)
-        pygame.draw.rect(screen, (255, 255, 255), SINGLE_PLAYER_RECT.inflate(-6, -6), 2)
+    #if SINGLE_PLAYER_RECT.collidepoint(mouse_pos):
+        #sp_color = (100,160,210)
+        #pygame.draw.rect(screen, (255, 255, 255), SINGLE_PLAYER_RECT.inflate(-6, -6), 2)
 
-    if MULTI_PLAYER_RECT.collidepoint(mouse_pos):
-        mp_color = (100,160,210)
-        pygame.draw.rect(screen, (255, 255, 255), MULTI_PLAYER_RECT.inflate(-6, -6), 2)
+    #if MULTI_PLAYER_RECT.collidepoint(mouse_pos):
+        #mp_color = (100,160,210)
+        #pygame.draw.rect(screen, (255, 255, 255), MULTI_PLAYER_RECT.inflate(-6, -6), 2)
 
     title = font.render("Battleship", True, (255,255,255))
     draw_text_with_outline(screen,
-                        "Battleship", # Text
-                        font, # Font
-                        (255, 255, 255), # Text Color
-                        (0, 0, 0), # Outline Color
-                        (WINDOW_WIDTH//2 - title.get_width()//2, WINDOW_HEIGHT//4), # Position
-                        shadow_x = -5,
-                        shadow_y = 5
-    )    
+                    "Battleship",
+                    font,
+                    (255, 255, 255),
+                    (0, 0, 0),
+                    (WINDOW_WIDTH//2 - title.get_width()//2, WINDOW_HEIGHT//4),
+                    shadow_x = -5,
+                    shadow_y = 5)
+    draw_animated_button(screen, SINGLE_PLAYER_RECT, (70, 130, 180), "Single Player", button_font,
+                     mouse_pos, button_click_times.get(id(SINGLE_PLAYER_RECT)))
+    draw_animated_button(screen, MULTI_PLAYER_RECT, (70, 130, 180), "Multi-Player", button_font,
+                         mouse_pos, button_click_times.get(id(MULTI_PLAYER_RECT)))
+      
        
     # screen.blit(title, (WINDOW_WIDTH//2 - title.get_width()//2, WINDOW_HEIGHT//4))
 
-    pygame.draw.rect(screen, sp_color, SINGLE_PLAYER_RECT)
-    pygame.draw.rect(screen, mp_color, MULTI_PLAYER_RECT)
+    #pygame.draw.rect(screen, sp_color, SINGLE_PLAYER_RECT)
+    #pygame.draw.rect(screen, mp_color, MULTI_PLAYER_RECT)
 
-    single_text = button_font.render("Single Player", True, (255,255,255))
-    multi_text = button_font.render("Multi-Player", True, (255,255,255))
+    #single_text = button_font.render("Single Player", True, (255,255,255))
+    #multi_text = button_font.render("Multi-Player", True, (255,255,255))
 
-    screen.blit(single_text, (SINGLE_PLAYER_RECT.centerx - single_text.get_width()//2,
-                                SINGLE_PLAYER_RECT.centery - single_text.get_height()//2))
+    #screen.blit(single_text, (SINGLE_PLAYER_RECT.centerx - single_text.get_width()//2,
+                                #SINGLE_PLAYER_RECT.centery - single_text.get_height()//2))
 
-    screen.blit(multi_text, (MULTI_PLAYER_RECT.centerx - multi_text.get_width()//2,
-                                MULTI_PLAYER_RECT.centery - multi_text.get_height()//2))
+    #screen.blit(multi_text, (MULTI_PLAYER_RECT.centerx - multi_text.get_width()//2,
+                                #MULTI_PLAYER_RECT.centery - multi_text.get_height()//2))
     
     return SINGLE_PLAYER_RECT, MULTI_PLAYER_RECT
 
@@ -329,11 +390,14 @@ def draw_difficulty_selection(mouse_pos):
         (MEDIUM_RECT, "Medium", (70, 130, 180)),
         (HARD_RECT,   "Hard",   (180, 50, 50)),
     ]:
+        draw_animated_button(screen, rect, base_color, label, btn_font,
+                             mouse_pos, button_click_times.get(id(rect)))
+    """
         color = tuple(min(c + 30, 255) for c in base_color) if rect.collidepoint(mouse_pos) else base_color
         pygame.draw.rect(screen, color, rect)
         text = btn_font.render(label, True, (255, 255, 255))
         screen.blit(text, (rect.centerx - text.get_width()//2, rect.centery - text.get_height()//2))
-
+"""
 
 def draw_message(message):
     font = pygame.font.Font(resource_path("fonts\\PressStart2P-Regular.ttf"), LARGE_FONT_SIZE)
@@ -1070,12 +1134,14 @@ while running:
             if event.type == pygame.MOUSEBUTTONDOWN:
                 # Single player button sets game mode to 1 and moved to the select difficulty stage
                 if SINGLE_PLAYER_RECT.collidepoint(event.pos):
+                    button_click_times[id(SINGLE_PLAYER_RECT)] = time.monotonic()
                     reset_local_ui_state()
                     backend.update_game_mode(1)
                     backend.update_game_state("SELECT_DIFFICULTY")
 
                 # Multi-player button setes game mode to 2 and waiting for another player to connect
                 if MULTI_PLAYER_RECT.collidepoint(event.pos):
+                    button_click_times[id(MULTI_PLAYER_RECT)] = time.monotonic()
                     backend.update_game_state("LOADING")
                     backend.update_game_mode(2)
 
@@ -1351,14 +1417,17 @@ while running:
         elif game_state == "SELECT_DIFFICULTY":
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if EASY_RECT.collidepoint(event.pos):
+                    button_click_times[id(EASY_RECT)] = time.monotonic()
                     backend.ai_difficulty = "easy"
                     backend.update_game_state("SELECT_SHIPS")
         
                 elif MEDIUM_RECT.collidepoint(event.pos):
+                    button_click_times[id(MEDIUM_RECT)]
                     backend.ai_difficulty = "medium"
                     backend.update_game_state("SELECT_SHIPS")
         
                 elif HARD_RECT.collidepoint(event.pos):
+                    button_click_times[id(HARD_RECT)]
                     backend.ai_difficulty = "hard"
                     backend.update_game_state("SELECT_SHIPS")
                 
