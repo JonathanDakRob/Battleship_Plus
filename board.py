@@ -1087,8 +1087,7 @@ def trigger_animation(num, loc, board, multi_bomb=False):
         "start": time.monotonic()
     })
 
-# SOUND BAR
-
+# ------------------ SOUND BAR FUNCTION ------------------
 clock = pygame.time.Clock()
 
 # Colors
@@ -1097,12 +1096,12 @@ GRAY = (120, 120, 120)
 DARK_GRAY = (70, 70, 70)
 GREEN = (100, 200, 100)
 
-# Sound icon (bottom left)
-ICON_SIZE = 40
+# Sound icon
+ICON_SIZE = 30
 icon_rect = pygame.Rect(10, WINDOW_HEIGHT - ICON_SIZE - 10, ICON_SIZE, ICON_SIZE)
 
 # Volume bar settings
-BAR_WIDTH = 150
+BAR_WIDTH = 80
 BAR_HEIGHT = 10
 bar_rect = pygame.Rect(
     icon_rect.right + 10,
@@ -1129,8 +1128,6 @@ def draw_volume_bar():
         fill_width = int(bar_rect.width * volume)
         fill_rect = pygame.Rect(bar_rect.x, bar_rect.y, fill_width, bar_rect.height)
         pygame.draw.rect(screen, GREEN, fill_rect)
-
-    pygame.display.flip()
 
 def handle_volume_input():
     global volume, dragging
