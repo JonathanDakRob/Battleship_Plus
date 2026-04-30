@@ -1087,6 +1087,71 @@ def trigger_animation(num, loc, board, multi_bomb=False):
         "start": time.monotonic()
     })
 
+# SOUND BAR
+
+clock = pygame.time.Clock()
+
+# Colors
+WHITE = (255, 255, 255)
+GRAY = (120, 120, 120)
+DARK_GRAY = (70, 70, 70)
+GREEN = (100, 200, 100)
+
+# Sound icon (bottom left)
+ICON_SIZE = 40
+icon_rect = pygame.Rect(10, WINDOW_HEIGHT - ICON_SIZE - 10, ICON_SIZE, ICON_SIZE)
+
+# Volume bar settings
+BAR_WIDTH = 150
+BAR_HEIGHT = 10
+bar_rect = pygame.Rect(
+    icon_rect.right + 10,
+    icon_rect.centery - BAR_HEIGHT // 2,
+    BAR_WIDTH,
+    BAR_HEIGHT
+)
+
+volume = 0.5  # range: 0.0 to 1.0
+dragging = False
+
+def draw_volume_bar():
+    # Draw sound icon (placeholder square)
+    pygame.draw.rect(screen, GRAY, icon_rect)
+
+    mouse_pos = pygame.mouse.get_pos()
+
+    # Show bar only when hovering icon or interacting with bar
+    if icon_rect.collidepoint(mouse_pos) or bar_rect.collidepoint(mouse_pos) or dragging:
+        # Background bar
+        pygame.draw.rect(screen, DARK_GRAY, bar_rect)
+
+        # Filled portion
+        fill_width = int(bar_rect.width * volume)
+        fill_rect = pygame.Rect(bar_rect.x, bar_rect.y, fill_width, bar_rect.height)
+        pygame.draw.rect(screen, GREEN, fill_rect)
+
+    pygame.display.flip()
+
+def handle_volume_input():
+    global volume, dragging
+
+    mouse_pos = pygame.mouse.get_pos()
+    mouse_pressed = pygame.mouse.get_pressed()
+
+    # Start dragging if clicking inside bar
+    if mouse_pressed[0]:
+        if bar_rect.collidepoint(mouse_pos) or dragging:
+            dragging = True
+
+            # Update volume based on mouse X position
+            rel_x = mouse_pos[0] - bar_rect.x
+            volume = max(0, min(1, rel_x / bar_rect.width))
+
+            # OPTIONAL: actually apply volume to pygame mixer
+            pygame.mixer.music.set_volume(volume)
+    else:
+        dragging = False
+
 # ------------------ START SERVER FUNCTION ------------------
 import threading
 def start_network():
@@ -1488,6 +1553,8 @@ while running:
 
     # ------------------ DRAWING ------------------
     draw_background(game_state)
+    draw_volume_bar()
+    handle_volume_input()
 
     if game_state == "MAIN_MENU":
         draw_main_menu(mouse_pos)
