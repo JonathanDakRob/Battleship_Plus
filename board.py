@@ -1153,12 +1153,20 @@ def handle_volume_input():
         dragging = False
 
 # ------------------ PLAY AUDIO ------------------
-def play_audio_waves():
+def play_waves():
     global volume
     if not pygame.mixer.music.get_busy():
         pygame.mixer.music.load(resource_path("audio\\waves.mp3"))
         pygame.mixer.music.set_volume(volume)
         pygame.mixer.music.play(-1)
+
+def play_button_click(click, loops=0, maxtime=0, fade_ms=0):
+    global volume
+    path = "audio\\click" + str(click) + ".mp3"
+    click_sound = pygame.mixer.Sound(resource_path(path))
+    click_sound.set_volume(volume)
+    click_sound.play(loops, maxtime, fade_ms)
+
 
 # ------------------ START SERVER FUNCTION ------------------
 import threading
@@ -1207,6 +1215,7 @@ while running:
             if event.type == pygame.MOUSEBUTTONDOWN:
                 # Single player button sets game mode to 1 and moved to the select difficulty stage
                 if SINGLE_PLAYER_RECT.collidepoint(event.pos):
+                    play_button_click(1)
                     button_click_times[id(SINGLE_PLAYER_RECT)] = time.monotonic()
                     reset_local_ui_state()
                     backend.update_game_mode(1)
@@ -1214,6 +1223,7 @@ while running:
 
                 # Multi-player button setes game mode to 2 and waiting for another player to connect
                 if MULTI_PLAYER_RECT.collidepoint(event.pos):
+                    play_button_click(1)
                     button_click_times[id(MULTI_PLAYER_RECT)] = time.monotonic()
                     backend.update_game_state("LOADING")
                     backend.update_game_mode(2)
@@ -1270,6 +1280,7 @@ while running:
 
                 if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     if RESET_BUTTON_RECT.collidepoint(event.pos):
+                        play_button_click(2)
                         backend.grid = [["." for _ in range(GRID_SIZE)] for _ in range(GRID_SIZE)]
                         create_ships(len(ships))
 
@@ -1279,6 +1290,7 @@ while running:
                     elif LOCK_BUTTON_RECT.collidepoint(event.pos):
                         all_valid = all(s.placed for s in ships)
                         if all_valid and sync_backend_placement_from_ui():
+                            play_button_click(2)
                             backend.ai_place_ships(len(ships))
                             backend.your_turn = True
                             backend.update_game_state("RUNNING_GAME")
@@ -1490,21 +1502,25 @@ while running:
         elif game_state == "SELECT_DIFFICULTY":
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if EASY_RECT.collidepoint(event.pos):
+                    play_button_click(1)
                     button_click_times[id(EASY_RECT)] = time.monotonic()
                     backend.ai_difficulty = "easy"
                     backend.update_game_state("SELECT_SHIPS")
         
                 elif MEDIUM_RECT.collidepoint(event.pos):
+                    play_button_click(1)
                     button_click_times[id(MEDIUM_RECT)] = time.monotonic()
                     backend.ai_difficulty = "medium"
                     backend.update_game_state("SELECT_SHIPS")
         
                 elif HARD_RECT.collidepoint(event.pos):
+                    play_button_click(1)
                     button_click_times[id(HARD_RECT)] = time.monotonic()
                     backend.ai_difficulty = "hard"
                     backend.update_game_state("SELECT_SHIPS")
                 
                 elif BUTTON_RECT.collidepoint(event.pos):
+                    play_button_click(1)
                     backend.update_game_state("MAIN_MENU")
                     backend.reset_game()
                     reset_local_ui_state()
@@ -1564,7 +1580,7 @@ while running:
     draw_volume_bar()
     handle_volume_input()
 
-    play_audio_waves()
+    play_waves()
 
     if game_state == "MAIN_MENU":
         draw_main_menu(mouse_pos)
