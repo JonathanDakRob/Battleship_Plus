@@ -958,8 +958,21 @@ def get_cell_pixel(grid_id, row, col):
     return x, y
 
 # ------------------ ANIMATIONS ------------------
+bomb_frame_count = len(os.listdir("images\\bomb"))
+hit_frame_count = len(os.listdir("images\\hit"))
+miss_frame_count = len(os.listdir("images\\miss"))
+sunk_frame_count = len(os.listdir("images\\sunk"))
+
+# Seconds
+BOMB_ANIM_DURATION = 2.0
+SMOKE_ANIM_DURATION = 1.2
+TIMEOUT_ANIM_DURATION = 1.8
+
 def draw_animation(screen):
-    global time_out_start
+    global time_out_start, BOMB_ANIM_DURATION, SMOKE_ANIM_DURATION, TIMEOUT_ANIM_DURATION
+    global bomb_frame_count, hit_frame_count, miss_frame_count, sunk_frame_count
+    fallingbomb_maxtime_ms = int(((bomb_frame_count / (bomb_frame_count+1)) * BOMB_ANIM_DURATION) * 1000)
+    hitmiss_maxtime_ms = int((BOMB_ANIM_DURATION*1000) - fallingbomb_maxtime_ms)
     
     # Load the image
     image_path = None
@@ -974,11 +987,11 @@ def draw_animation(screen):
         elapsed = time.monotonic() - anim["start"]
 
         if anim_type in (1,2,3):
-            duration = 2.0
+            duration = BOMB_ANIM_DURATION
         elif anim_type == 4:
-            duration = 1.2
+            duration = SMOKE_ANIM_DURATION
         elif anim_type == 5:
-            duration = 1.8
+            duration = TIMEOUT_ANIM_DURATION
         
         # Stop after duration
         if elapsed > duration:
@@ -988,7 +1001,13 @@ def draw_animation(screen):
 
         if anim_type in (1,2,3):
             # Play Falling Bomb animation
+            play_sound_effect("falling_bomb")
             backend.set_wait_for_animation(True) # Wait for animation to finish before next shot/turn
+            
+            # This un implemented code will be used to make the animations dynamic in terms of frame count
+            # # bomb_frame = math.floor((elapsed / duration)*bomb_frame_count) + 1
+            # # if not bomb_frame > bomb_frame_count:
+            # #     image_path = "images\\bomb\\Battleship_Bomb" + str(bomb_frame) + ".png"
             if elapsed < (duration / 5):
                 image_path = "images\\bomb\\Battleship_Bomb1.png"
             elif elapsed < (2* duration / 5):
@@ -1000,9 +1019,11 @@ def draw_animation(screen):
             else:
                 if anim_type == 1:
                     # Play Splash animation
+                    play_sound_effect("splash", maxtime=hitmiss_maxtime_ms, fade_ms=hitmiss_maxtime_ms//2)
                     image_path = "images\\miss\\Battleship_Splash.png"
                 else:
                     # Play Bang animation
+                    play_sound_effect("bang", maxtime=hitmiss_maxtime_ms, fade_ms=hitmiss_maxtime_ms//2)
                     image_path = "images\\hit\\Battleship_Bang.png"
 
         if anim_type == 4:
@@ -1166,6 +1187,29 @@ def play_button_click(click, loops=0, maxtime=0, fade_ms=0):
     click_sound = pygame.mixer.Sound(resource_path(path))
     click_sound.set_volume(volume)
     click_sound.play(loops, maxtime, fade_ms)
+
+falling_bomb_channel = None
+miss_hit_channel = None
+def play_sound_effect(effect, loops=0, maxtime=0, fade_ms=0):
+    #Plays any sound within the audio folder with the of "effect.mp3"
+    global volume, falling_bomb_channel, miss_hit_channel
+    try:
+        path = "audio\\" + effect + ".mp3"
+        sound_effect = pygame.mixer.Sound(resource_path(path))
+        sound_effect.set_volume(volume)
+        
+        if effect == "falling_bomb":
+            if falling_bomb_channel is None:
+                falling_bomb_channel = sound_effect.play(loops, maxtime, fade_ms)
+            elif not falling_bomb_channel.get_busy():
+                falling_bomb_channel = sound_effect.play(loops, maxtime, fade_ms)
+        else:
+            if miss_hit_channel is None:
+                miss_hit_channel = sound_effect.play(loops, maxtime, fade_ms)
+            elif not miss_hit_channel.get_busy():
+                miss_hit_channel = sound_effect.play(loops, maxtime, fade_ms)
+    except:
+        print("SOUND EFFECT ERROR")
 
 
 # ------------------ START SERVER FUNCTION ------------------
