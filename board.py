@@ -990,29 +990,29 @@ def draw_animation(screen):
             # Play Falling Bomb animation
             backend.set_wait_for_animation(True) # Wait for animation to finish before next shot/turn
             if elapsed < (duration / 5):
-                image_path = "images\\Battleship_Bomb1.png"
+                image_path = "images\\bomb\\Battleship_Bomb1.png"
             elif elapsed < (2* duration / 5):
-                image_path = "images\\Battleship_Bomb2.png"
+                image_path = "images\\bomb\\Battleship_Bomb2.png"
             elif elapsed < (3* duration / 5):
-                image_path = "images\\Battleship_Bomb3.png"
+                image_path = "images\\bomb\\Battleship_Bomb3.png"
             elif elapsed < (4* duration / 5):
-                image_path = "images\\Battleship_Bomb4.png"
+                image_path = "images\\bomb\\Battleship_Bomb4.png"
             else:
                 if anim_type == 1:
                     # Play Splash animation
-                    image_path = "images\\Battleship_Splash.png"
+                    image_path = "images\\miss\\Battleship_Splash.png"
                 else:
                     # Play Bang animation
-                    image_path = "images\\Battleship_Bang.png"
+                    image_path = "images\\hit\\Battleship_Bang.png"
 
         if anim_type == 4:
             # Play RISING SMOKE aniation
             if elapsed < (duration/3):
-                image_path = "images\\Battleship_Smoke1.png"
+                image_path = "images\\sunk\\Battleship_Smoke1.png"
             elif elapsed < (2* duration/3):
-                image_path = "images\\Battleship_Smoke2.png"
+                image_path = "images\\sunk\\Battleship_Smoke2.png"
             else:
-                image_path = "images\\Battleship_Smoke3.png"
+                image_path = "images\\sunk\\Battleship_Smoke3.png"
         
         if anim_type == 5:
             # Timed out animation: Board argument represents the player_id who timed out
@@ -1115,7 +1115,8 @@ dragging = False
 
 def draw_volume_bar():
     # Draw sound icon (placeholder square)
-    pygame.draw.rect(screen, GRAY, icon_rect)
+    icon = pygame.image.load(resource_path("images\\audio\\audio_icon.png")).convert_alpha()
+    icon = pygame.transform.scale(icon, (icon_rect.width, icon_rect.height))
 
     mouse_pos = pygame.mouse.get_pos()
 
@@ -1128,6 +1129,8 @@ def draw_volume_bar():
         fill_width = int(bar_rect.width * volume)
         fill_rect = pygame.Rect(bar_rect.x, bar_rect.y, fill_width, bar_rect.height)
         pygame.draw.rect(screen, GREEN, fill_rect)
+
+    screen.blit(icon, icon_rect.topleft)
 
 def handle_volume_input():
     global volume, dragging
@@ -1148,6 +1151,14 @@ def handle_volume_input():
             pygame.mixer.music.set_volume(volume)
     else:
         dragging = False
+
+# ------------------ PLAY AUDIO ------------------
+def play_audio_waves():
+    global volume
+    if not pygame.mixer.music.get_busy():
+        pygame.mixer.music.load(resource_path("audio\\waves.mp3"))
+        pygame.mixer.music.set_volume(volume)
+        pygame.mixer.music.play(-1)
 
 # ------------------ START SERVER FUNCTION ------------------
 import threading
@@ -1552,6 +1563,8 @@ while running:
     draw_background(game_state)
     draw_volume_bar()
     handle_volume_input()
+
+    play_audio_waves()
 
     if game_state == "MAIN_MENU":
         draw_main_menu(mouse_pos)
