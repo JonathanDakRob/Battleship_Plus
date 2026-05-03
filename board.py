@@ -1587,15 +1587,13 @@ while running:
             elif time.monotonic() >= ai_turn_due_time:
                 ai_hit = False
                 all_sunk = False
+                ai_used_multi_bomb = False
 
                 # Give the AI a random chance to use this one-time multi-bomb
                 if backend.ai_should_use_multi_bomb():
+                    ai_used_multi_bomb = True
                     center_row, center_col, ai_hit, all_sunk = backend.ai_take_multi_bomb_turn()
                     print(f"AI multi-bombed around ({center_row}, {center_col})")
-
-                    # For multi-bomb, treat it as a successful hit turn if at least one
-                    # new hit was recorded during the attack.
-
                 else:
                     row, col, hit, sunk, all_sunk = backend.ai_take_turn()
                     ai_hit = hit
@@ -1604,9 +1602,10 @@ while running:
                     backend.winner = False
                     backend.update_game_state("GAME_OVER")
                 else:
-                    # Easy and medium AI keep the turn after a hit.
-                    # Hard AI always gives the turn back to the player.
-                    if backend.ai_difficulty in ("easy", "medium") and ai_hit:
+                    # Standard single-player turn rule:
+                    # normal shot hit = AI keeps turn, normal shot miss = player gets turn.
+                    # Multi-bomb always consumes the turn for balance.
+                    if ai_hit and not ai_used_multi_bomb:
                         backend.your_turn = False
                     else:
                         backend.your_turn = True

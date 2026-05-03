@@ -86,7 +86,6 @@ def set_wait_for_animation(wait):
         print("BACKEND: Invalid Wait Value")
     
 ####################################################################### AI Components #######################################################################################
-import random
 
 # AI's own grid and ships (hidden from player)
 ai_grid = [["." for _ in range(BOARD_SIZE)] for _ in range(BOARD_SIZE)]
@@ -99,6 +98,22 @@ ai_tried = set()        # Every cell the AI has already shot
 
 # Difficulty: "easy", "medium", "hard"
 ai_difficulty = "medium"
+
+# AI personality is derived from difficulty so board.py only needs to set ai_difficulty.
+# This keeps AI behavior centralized in backend.py.
+AI_PERSONALITY_BY_DIFFICULTY = {
+    "easy": "careless",
+    "medium": "balanced",
+    "hard": "aggressive"
+}
+
+def get_ai_personality():
+    """
+    Return the AI personality tied to the current difficulty.
+    Easy is more random, Medium is balanced, and Hard is more strategic.
+    """
+    return AI_PERSONALITY_BY_DIFFICULTY.get(ai_difficulty, "balanced")
+
 ai_multi_bomb_used = False
 AI_MULTI_BOMB_CHANCE = 0.1 # Chance to use multi-bomb on an AI turn
 
@@ -123,71 +138,314 @@ def ai_place_ships(count):
                 ai_ships.append(cells)
                 placed = True
 
-def ai_pick_shot():
-    """Pick a cell to shoot based on difficulty level."""
-    global ai_mode, ai_hits_pending
+def ai_random_untried_cell(use_parity=False):
+    """
+    Pick a random untried cell.
+    If use_parity is True, prefer checkerboard-pattern cells first.
+    This helps Hard mode hunt more efficiently without cheating.
+    """
+    candidates = [
+        (r, c)
+        for r in range(BOARD_SIZE)
+        for c in range(BOARD_SIZE)
+        if (r, c) not in ai_tried
+    ]
 
-    # Hard: cheat by reading the player's grid directly, never misses
-    if ai_difficulty == "hard":
-        candidates = [
-            (r, c)
-            for r in range(BOARD_SIZE)
-            for c in range(BOARD_SIZE)
-            if (r, c) not in ai_tried and grid[r][c] == "S"
-        ]
-        if candidates:
-            return random.choice(candidates)
-
-        # If no unseen ship cells remain, fall back to any legal untried cell so
-        # hard mode never gets stuck in an infinite search loop late in the game.
-        fallback = [
-            (r, c)
-            for r in range(BOARD_SIZE)
-            for c in range(BOARD_SIZE)
-            if (r, c) not in ai_tried
-        ]
-        if fallback:
-            return random.choice(fallback)
-
+    if not candidates:
         return None
 
-    # Easy: purely random, no memory of hits
-    elif ai_difficulty == "easy":
-        while True:
-            r = random.randint(0, BOARD_SIZE - 1)
-            c = random.randint(0, BOARD_SIZE - 1)
-            if (r, c) not in ai_tried:
-                return r, c
+    if use_parity:
+        parity_candidates = [
+            (r, c)
+            for r, c in candidates
+            if (r + c) % 2 == 0
+        ]
 
-    # Medium: hunt randomly, then target neighbors after a hit
+        if parity_candidates:
+            return random.choice(parity_candidates)
+
+    return random.choice(candidates)
+
+def ai_center_bias(row, col):
+    """
+    Slightly prefer central cells because ships have more possible placements there.
+    This is fair because it uses board geometry, not hidden ship locations.
+    """
+    personality = get_ai_personality()
+
+    if personality == "careless":
+        return 0
+
+    center = (BOARD_SIZE - 1) / 2
+    distance = abs(row - center) + abs(col - center)
+    bias = max(0, int(BOARD_SIZE - distance))
+
+    if personality == "balanced":
+        return bias // 2
+
+    if personality == "aggressive":
+        return bias
+
+    return 0
+
+def ai_get_untried_neighbors(row, col):
+    """
+    Return valid neighboring cells in random order.
+    This prevents Medium AI from always checking upward first after a hit.
+    """
+    directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+    random.shuffle(directions)
+
+    neighbors = []
+
+    for dr, dc in directions:
+        nr = row + dr
+        nc = col + dc
+
+        if in_bounds(nr, nc) and (nr, nc) not in ai_tried:
+            neighbors.append((nr, nc))
+
+    return neighbors
+
+def ai_pick_line_extension():
+    """
+    If the AI has multiple unsunk hits in a straight line, continue from either end of that line.
+    This creates smarter targeting without using hidden ship positions.
+    """
+    if len(ai_hits_pending) < 2:
+        return None
+
+    rows = [r for r, _ in ai_hits_pending]
+    cols = [c for _, c in ai_hits_pending]
+
+    candidates = []
+
+    # Horizontal pattern
+    if len(set(rows)) == 1:
+        row = rows[0]
+        min_col = min(cols)
+        max_col = max(cols)
+        candidates = [(row, min_col - 1), (row, max_col + 1)]
+
+    # Vertical pattern
+    elif len(set(cols)) == 1:
+        col = cols[0]
+        min_row = min(rows)
+        max_row = max(rows)
+        candidates = [(min_row - 1, col), (max_row + 1, col)]
+
+    random.shuffle(candidates)
+
+    for r, c in candidates:
+        if in_bounds(r, c) and (r, c) not in ai_tried:
+            return r, c
+
+    return None
+
+def ai_pick_medium_shot():
+    """
+    Medium AI:
+    - hunts randomly when there are no active hits
+    - randomly checks neighbors after one hit
+    - follows a discovered ship direction after multiple aligned hits
+    """
+    line_shot = ai_pick_line_extension()
+    if line_shot is not None:
+        return line_shot
+
+    if ai_hits_pending:
+        pending_hits = ai_hits_pending[:]
+        random.shuffle(pending_hits)
+
+        for r, c in pending_hits:
+            neighbors = ai_get_untried_neighbors(r, c)
+            if neighbors:
+                return neighbors[0]
+
+    return ai_random_untried_cell(use_parity=False)
+
+def ai_remaining_ship_sizes():
+    """
+    Estimate remaining ship sizes.
+    This uses fleet sizes and sunk status, not hidden unhit ship cells.
+    """
+    remaining = []
+
+    for ship in ships:
+        if not all(grid[r][c] == "D" for r, c in ship):
+            remaining.append(len(ship))
+
+    if remaining:
+        return remaining
+
+    return [1]
+
+def ai_build_probability_scores():
+    """
+    Build a heatmap for Hard mode using visible information:
+    - "O" = known miss, blocks placements
+    - "D" = sunk ship cell, blocks placements
+    - "X" = active hit, should be explained by possible placements
+    - untried cells receive scores from possible ship placements
+    """
+    scores = [[0 for _ in range(BOARD_SIZE)] for _ in range(BOARD_SIZE)]
+    remaining_sizes = ai_remaining_ship_sizes()
+    known_hits = set(ai_hits_pending)
+
+    for size in remaining_sizes:
+        for orientation in ("H", "V"):
+            for row in range(BOARD_SIZE):
+                for col in range(BOARD_SIZE):
+                    cells = compute_ship_cells(row, col, size, orientation)
+
+                    if not all(in_bounds(r, c) for r, c in cells):
+                        continue
+
+                    # Misses and sunk cells cannot contain an active ship.
+                    if any(grid[r][c] in ("O", "D") for r, c in cells):
+                        continue
+
+                    # If there are known unsunk hits, prefer placements that explain them.
+                    if known_hits and not any((r, c) in known_hits for r, c in cells):
+                        continue
+
+                    for r, c in cells:
+                        if (r, c) not in ai_tried:
+                            scores[r][c] += 1
+
+                            # Extra weight near known hits helps finish ships.
+                            for hit_r, hit_c in known_hits:
+                                if abs(hit_r - r) + abs(hit_c - c) == 1:
+                                    scores[r][c] += 3
+
+    # Personality-based center preference is only added while hunting.
+    # Once the AI has active hits, ship-following logic should matter more.
+    if not known_hits:
+        for r in range(BOARD_SIZE):
+            for c in range(BOARD_SIZE):
+                if (r, c) not in ai_tried:
+                    scores[r][c] += ai_center_bias(r, c)
+
+    return scores
+
+def ai_pick_probability_shot():
+    """
+    Fair Hard AI.
+    It does not search for hidden "S" cells. It scores possible ship locations using misses, hits,
+    sunk cells, remaining ship sizes, and shot history.
+    """
+    line_shot = ai_pick_line_extension()
+    if line_shot is not None:
+        return line_shot
+
+    scores = ai_build_probability_scores()
+
+    best_score = -1
+    best_cells = []
+
+    for r in range(BOARD_SIZE):
+        for c in range(BOARD_SIZE):
+            if (r, c) in ai_tried:
+                continue
+
+            if scores[r][c] > best_score:
+                best_score = scores[r][c]
+                best_cells = [(r, c)]
+            elif scores[r][c] == best_score:
+                best_cells.append((r, c))
+
+    if best_cells:
+        return random.choice(best_cells)
+
+    return ai_random_untried_cell(use_parity=True)
+
+def ai_pick_multi_bomb_center():
+    """
+    Pick a center for AI multi-bomb.
+    Easy is loose/random, Medium is semi-tactical, Hard scores every 3x3 area.
+    """
+    personality = get_ai_personality()
+
+    if ai_difficulty == "easy":
+        return ai_random_untried_cell(use_parity=False)
+
+    scores = ai_build_probability_scores()
+
+    best_score = -1
+    best_centers = []
+
+    for row in range(BOARD_SIZE):
+        for col in range(BOARD_SIZE):
+            cells = compute_multi_bomb_cells(row, col)
+            untried_cells = [
+                (r, c)
+                for r, c in cells
+                if (r, c) not in ai_tried
+            ]
+
+            if not untried_cells:
+                continue
+
+            area_score = 0
+
+            for r, c in untried_cells:
+                area_score += scores[r][c]
+
+                # Multi-bomb near a known hit can finish a ship faster.
+                if (r, c) in ai_hits_pending:
+                    area_score += 8
+
+            # Put the personality adjustment here, after the area has been scored
+            # but before comparing it against the current best multi-bomb center.
+            if personality == "balanced":
+                area_score += random.randint(0, 4)
+            elif personality == "aggressive":
+                for r, c in untried_cells:
+                    area_score += ai_center_bias(r, c)
+
+            if area_score > best_score:
+                best_score = area_score
+                best_centers = [(row, col)]
+            elif area_score == best_score:
+                best_centers.append((row, col))
+
+    if best_centers:
+        return random.choice(best_centers)
+
+    return ai_random_untried_cell(use_parity=False)
+
+def ai_pick_shot():
+    """
+    Pick a cell to shoot based on difficulty level.
+    """
+
+    if ai_difficulty == "easy":
+        return ai_random_untried_cell(use_parity=False)
+
     elif ai_difficulty == "medium":
-        if ai_mode == "target" and ai_hits_pending:
-            r, c = ai_hits_pending[-1]
-            for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-                nr, nc = r + dr, c + dc
-                if in_bounds(nr, nc) and (nr, nc) not in ai_tried:
-                    return nr, nc
-            # No valid neighbors left for this hit, pop it and recurse
-            ai_hits_pending.pop()
-            return ai_pick_shot()
+        return ai_pick_medium_shot()
 
-        # Hunt mode: random untried cell
-        while True:
-            r = random.randint(0, BOARD_SIZE - 1)
-            c = random.randint(0, BOARD_SIZE - 1)
-            if (r, c) not in ai_tried:
-                return r, c
+    elif ai_difficulty == "hard":
+        return ai_pick_probability_shot()
+
+    return ai_random_untried_cell(use_parity=False)
 
 def ai_receive_result(row, col, hit, sunk):
-    """Update AI targeting state after learning the result of its shot."""
+    """
+    Update AI targeting memory after learning the result of a shot.
+    """
     global ai_mode, ai_hits_pending
+
     ai_tried.add((row, col))
+
     if hit:
-        if ai_difficulty == "medium":
-            ai_hits_pending.append((row, col))
+        if ai_difficulty in ("medium", "hard"):
+            if (row, col) not in ai_hits_pending:
+                ai_hits_pending.append((row, col))
             ai_mode = "target"
+
     if sunk:
-        if ai_difficulty == "medium":
+        if ai_difficulty in ("medium", "hard"):
             ai_hits_pending.clear()
             ai_mode = "hunt"
 
@@ -236,17 +494,22 @@ def ai_take_turn():
 def ai_take_multi_bomb_turn():
     """
     AI uses a one-time 3x3 multi-bomb on the player's board.
-    Returns (center_row, center_col, all_sunk_result).
+    Returns (center_row, center_col, hit_any, all_sunk_result).
     """
-    global ai_multi_bomb_used
+    global ai_multi_bomb_used, ai_mode, ai_hits_pending
 
     # Pick the center of the multi-bomb using the existing AI targeting logic
-    center_row, center_col = ai_pick_shot()
+    center = ai_pick_multi_bomb_center()
+    if center is None:
+        return None, None, False, all_ships_sunk()
+
+    center_row, center_col = center
     cells = compute_multi_bomb_cells(center_row, center_col)
 
     anim_val = 0
     sunk_indexes = []
     hit_any = False
+    hit_cells = []
 
     for row, col in cells:
         # Skip cells the AI already attacked before
@@ -259,6 +522,8 @@ def ai_take_multi_bomb_turn():
 
         if hit:
             hit_any = True
+            hit_cells.append((row, col))
+
             grid[row][col] = "X"
             shots_received_hit.append((row, col))
 
@@ -276,6 +541,13 @@ def ai_take_multi_bomb_turn():
             shots_received_miss.append((row, col))
             if anim_val < 1:
                 anim_val = 1
+
+    # Store unsunk hits found by the multi-bomb so the AI can follow up.
+    for row, col in hit_cells:
+        if grid[row][col] == "X" and (row, col) not in ai_hits_pending:
+            ai_hits_pending.append((row, col))
+
+    ai_mode = "target" if ai_hits_pending else "hunt"
 
     all_sunk_result = all_ships_sunk()
 
@@ -416,18 +688,41 @@ def player_radar_scan(center_row, center_col):
     return True, found
 
 def ai_should_use_multi_bomb():
-    # AI can only use multi-bomb once per game.
+    """
+    Decide whether the AI should use its one-time multi-bomb.
+    The AI becomes more likely to use it when it has useful information.
+    """
     if ai_multi_bomb_used:
         return False
 
+    # Avoid wasting it too early with no information.
+    if len(ai_tried) < 4 and not ai_hits_pending:
+        return False
+
+    personality = get_ai_personality()
+
     if ai_difficulty == "easy":
-        chance = 0.10
+        chance = 0.05
+
     elif ai_difficulty == "medium":
-        chance = 0.20
+        chance = 0.12
+        if ai_hits_pending:
+            chance = 0.25
+
     elif ai_difficulty == "hard":
-        chance = 0.35
+        chance = 0.15
+        if ai_hits_pending:
+            chance = 0.40
+
     else:
-        chance = 0.20
+        chance = 0.10
+
+    # Personality modifier: careless AI is less tactical, aggressive AI is more likely
+    # to spend multi-bomb when it has already found part of a ship.
+    if personality == "careless":
+        chance *= 0.75
+    elif personality == "aggressive" and ai_hits_pending:
+        chance += 0.10
 
     return random.random() < chance
 
