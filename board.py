@@ -1177,13 +1177,13 @@ def handle_volume_input():
 def play_waves():
     global volume
     if not pygame.mixer.music.get_busy():
-        pygame.mixer.music.load(resource_path("audio\\waves.mp3"))
+        pygame.mixer.music.load(resource_path("audio\\waves.ogg"))
         pygame.mixer.music.set_volume(volume)
         pygame.mixer.music.play(-1)
 
 def play_button_click(click, loops=0, maxtime=0, fade_ms=0):
     global volume
-    path = "audio\\click" + str(click) + ".mp3"
+    path = "audio\\click" + str(click) + ".ogg"
     click_sound = pygame.mixer.Sound(resource_path(path))
     click_sound.set_volume(volume)
     click_sound.play(loops, maxtime, fade_ms)
@@ -1191,10 +1191,10 @@ def play_button_click(click, loops=0, maxtime=0, fade_ms=0):
 falling_bomb_channel = None
 miss_hit_channel = None
 def play_sound_effect(effect, loops=0, maxtime=0, fade_ms=0):
-    #Plays any sound within the audio folder with the of "effect.mp3"
+    #Plays any sound within the audio folder with the of "effect.ogg"
     global volume, falling_bomb_channel, miss_hit_channel
     try:
-        path = "audio\\" + effect + ".mp3"
+        path = "audio\\" + effect + ".ogg"
         sound_effect = pygame.mixer.Sound(resource_path(path))
         sound_effect.set_volume(volume)
         
