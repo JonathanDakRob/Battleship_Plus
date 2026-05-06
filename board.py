@@ -687,77 +687,166 @@ def draw_radar_flash():
         pygame.draw.rect(screen, color, rect, 3)
 
 def draw_status_panel():
-    # Simple UI panel to explain state during demo
+    # Right-side status panel with boxed "icon slots" for power-ups
+    # and boxed stat readouts for opponent and player.
     panel_x = GRID_PADDING + GRID_SIZE * CELL_SIZE + 15
-    panel_y = 30
+    panel_right_edge = WINDOW_WIDTH - 15
+    panel_width = panel_right_edge - panel_x
 
-    player_panel_x = panel_x
-    player_panel_y = panel_y + (GRID_PADDING + GRID_SIZE * CELL_SIZE)
+    # Fonts
+    panel_font = pygame.font.Font(resource_path("fonts\\PressStart2P-Regular.ttf"), SMALL_FONT_SIZE // 2)
+    header_font = pygame.font.Font(resource_path("fonts\\PressStart2P-Regular.ttf"), SMALL_FONT_SIZE // 2 + 2)
+    value_font = pygame.font.Font(resource_path("fonts\\PressStart2P-Regular.ttf"), SMALL_FONT_SIZE // 2 + 2)
 
-    power_panel_x = END_OF_GRID_X + ((WINDOW_WIDTH - END_OF_GRID_X) // 2)
-    power_panel_y = END_OF_GRID_Y - (END_OF_GRID_Y // 4)
+    # Colors
+    panel_color = (0, 0, 200)
+    box_border = (200, 200, 220)
+    available_color = (60, 200, 90)
+    armed_color = (240, 180, 40)
+    used_color = (160, 60, 60)
 
-    font = pygame.font.SysFont(None, 20)
-
+    # ---- Power-up statuses ----
     if backend.multi_bomb_used:
         multi_bomb_status = "USED"
     elif multi_bomb_mode:
         multi_bomb_status = "ARMED"
     else:
-        multi_bomb_status = "READY"
+        multi_bomb_status = "AVAILABLE"
 
+    if backend.radar_used:
+        radar_status = "USED"
+    elif radar_mode:
+        radar_status = "ARMED"
+    else:
+        radar_status = "AVAILABLE"
+
+    def status_color(status):
+        if status == "AVAILABLE":
+            return available_color
+        if status == "ARMED":
+            return armed_color
+        return used_color
+
+    # ---- Player label / turn text ----
     if backend.GAME_MODE == 2:
         player_label = f"Player {str(backend.player_id)}"
     else:
         player_label = "Single Player"
-
-    # Build these labels separately to keep the status panel readable and avoid
-    # fragile inline f-string expressions for turn/radar state text.
     turn_text = "Your Turn" if backend.your_turn else "Opponent's Turn"
-    radar_text = "USED" if backend.radar_used else ("ARMED" if radar_mode else "READY")
 
-    lines = [
-        player_label,
-        turn_text,
-        "",
-        f"Enemy ships sunk: {backend.opponent_ships_sunk}/{len(backend.ships)}",
-        f"Shots hit: {len(backend.shots_sent_hit)}",
-        f"Shots missed: {len(backend.shots_sent_miss)}",
-        "",
-        f"Big-bomb (M): {multi_bomb_status}",
-        f"Radar (R): {radar_text}"
+    cursor_y = 25
+    label_surf = panel_font.render(player_label, True, panel_color)
+    screen.blit(label_surf, (panel_x, cursor_y))
+    cursor_y += 22
+    turn_surf = panel_font.render(turn_text, True, panel_color)
+    screen.blit(turn_surf, (panel_x, cursor_y))
+    cursor_y += 30
+
+    # ---- POWER-UPS row (two boxes: Big-bomb + Radar) ----
+    power_header = header_font.render("POWER-UPS", True, panel_color)
+    screen.blit(power_header, (panel_x, cursor_y))
+    cursor_y += 24
+
+    icon_size = min(70, (panel_width - 30) // 2)
+    icon_gap = (panel_width - icon_size * 2) // 3
+    powerups = [
+        ("M", "BIG-BOMB", multi_bomb_status),
+        ("R", "RADAR", radar_status),
     ]
+    for i, (key, name, status) in enumerate(powerups):
+        bx = panel_x + icon_gap + i * (icon_size + icon_gap)
+        by = cursor_y
+        box_rect = pygame.Rect(bx, by, icon_size, icon_size)
+        pygame.draw.rect(screen, status_color(status), box_rect)
+        pygame.draw.rect(screen, box_border, box_rect, 2)
 
-    opp_lines = [
-        f"Ships sunk: {backend.get_num_ships_sunk()}/{len(backend.ships)}",
-        f"Hits recv: {len(backend.shots_received_hit)}",
-        f"Miss recv: {len(backend.shots_received_miss)}",
+        # Hotkey hint inside the square (top-left)
+        key_surf = panel_font.render(key, True, (255, 255, 255))
+        screen.blit(key_surf, (bx + 4, by + 4))
+
+        # Name under the square
+        name_surf = panel_font.render(name, True, panel_color)
+        screen.blit(name_surf, (bx + icon_size // 2 - name_surf.get_width() // 2, by + icon_size + 4))
+
+        # Status under the name
+        status_surf = panel_font.render(status, True, status_color(status))
+        screen.blit(status_surf, (bx + icon_size // 2 - status_surf.get_width() // 2, by + icon_size + 4 + 18))
+
+    cursor_y += icon_size + 50
+
+    # ---- Helper: draw a stats row (3 boxed values + labels) ----
+    def draw_stats_row(y, header_text, values):
+        # values: list of (label, value_str)
+        header_surf = header_font.render(header_text, True, panel_color)
+        screen.blit(header_surf, (panel_x, y))
+        y += 24
+
+        # Reserve a fixed slot per stat. Each slot holds a centered box
+        # plus its label, with a small gap between slots so labels never
+        # bleed into the neighboring column.
+        slot_gap = 6
+        slot_w = (panel_width - slot_gap * 2) // 3
+        box_w = min(50, slot_w - 4)
+
+        # Smaller font for the per-box label so wider words like "SHIPS SUNK"
+        # fit inside their slot.
+        label_font = pygame.font.Font(resource_path("fonts\\PressStart2P-Regular.ttf"),
+                                      max(6, SMALL_FONT_SIZE // 3))
+
+        max_label_h = 0
+        for i, (lbl, val) in enumerate(values):
+            slot_x = panel_x + i * (slot_w + slot_gap)
+            bx = slot_x + (slot_w - box_w) // 2
+            box_rect = pygame.Rect(bx, y, box_w, box_w)
+            pygame.draw.rect(screen, (240, 240, 245), box_rect)
+            pygame.draw.rect(screen, box_border, box_rect, 2)
+
+            # Auto-shrink the value font if the rendered text is wider than the box.
+            val_str = str(val)
+            val_font_size = SMALL_FONT_SIZE // 2 + 2
+            val_surf = pygame.font.Font(resource_path("fonts\\PressStart2P-Regular.ttf"),
+                                        val_font_size).render(val_str, True, (200, 30, 30))
+            while val_surf.get_width() > box_w - 6 and val_font_size > 6:
+                val_font_size -= 1
+                val_surf = pygame.font.Font(resource_path("fonts\\PressStart2P-Regular.ttf"),
+                                            val_font_size).render(val_str, True, (200, 30, 30))
+            screen.blit(val_surf, (bx + box_w // 2 - val_surf.get_width() // 2,
+                                   y + box_w // 2 - val_surf.get_height() // 2))
+
+            # Wrap label onto two lines if it has a space (e.g. "SHIPS SUNK")
+            label_lines = lbl.split(" ") if " " in lbl else [lbl]
+            for li, line in enumerate(label_lines):
+                line_surf = label_font.render(line, True, panel_color)
+                lx = slot_x + slot_w // 2 - line_surf.get_width() // 2
+                ly = y + box_w + 4 + li * (line_surf.get_height() + 1)
+                screen.blit(line_surf, (lx, ly))
+            label_h = len(label_lines) * (label_font.get_height() + 1)
+            if label_h > max_label_h:
+                max_label_h = label_h
+
+        return y + box_w + 8 + max_label_h + 12
+
+    # ---- OPPONENT stats (what the opponent has done to you) ----
+    opp_values = [
+        ("SHIPS SUNK", f"{backend.get_num_ships_sunk()}/{len(backend.ships)}"),
+        ("HITS",       len(backend.shots_received_hit)),
+        ("MISSES",     len(backend.shots_received_miss)),
     ]
+    cursor_y = draw_stats_row(cursor_y, "OPPONENT", opp_values)
 
-    power_lines = [
-        
+    # ---- YOU stats (what you have done to the opponent) ----
+    you_values = [
+        ("SHIPS SUNK", f"{backend.opponent_ships_sunk}/{len(backend.ships)}"),
+        ("HITS",       len(backend.shots_sent_hit)),
+        ("MISSES",     len(backend.shots_sent_miss)),
     ]
+    cursor_y = draw_stats_row(cursor_y, "YOU", you_values)
 
-    # Timer at the bottom of the screen
+    # ---- Turn timer (kept where it was, bottom of screen) ----
     timer_font = pygame.font.Font(resource_path("fonts\\PressStart2P-Regular.ttf"), MEDIUM_FONT_SIZE)
-    timer_surf = timer_font.render(format_seconds(current_turn_time_left), True, (255,255,255))
-    screen.blit(timer_surf, BUTTON_RECT.inflate(12,12))
-
-    panel_font = pygame.font.Font(resource_path("fonts\\PressStart2P-Regular.ttf"), SMALL_FONT_SIZE//2)
-    panel_color = (0, 0, 200)
-
-    for i, text in enumerate(lines):
-        surf = panel_font.render(text, True, panel_color)
-        screen.blit(surf, (panel_x, panel_y + i * 22))
-
-    for i, text in enumerate(opp_lines):
-        surf = panel_font.render(text, True, panel_color)
-        screen.blit(surf, (player_panel_x, player_panel_y + i*22))
-
-    for i, text in enumerate(power_lines):
-        power_surf = panel_font.render(text, True, panel_color)
-        power_rect = power_surf.get_rect(center=(power_panel_x, power_panel_y + i*22))
-        screen.blit(power_surf, power_rect)
+    timer_surf = timer_font.render(format_seconds(current_turn_time_left), True, (255, 255, 255))
+    screen.blit(timer_surf, BUTTON_RECT.inflate(12, 12))
+    
 
 def draw_lock_button(mouse_pos):
     # Place button at the bottom center
