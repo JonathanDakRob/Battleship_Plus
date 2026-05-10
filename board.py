@@ -1047,10 +1047,10 @@ def get_cell_pixel(grid_id, row, col):
     return x, y
 
 # ------------------ ANIMATIONS ------------------
-bomb_frame_count = len(os.listdir("images\\bomb"))
-hit_frame_count = len(os.listdir("images\\hit"))
-miss_frame_count = len(os.listdir("images\\miss"))
-sunk_frame_count = len(os.listdir("images\\sunk"))
+bomb_frame_count = len(os.listdir(resource_path("images\\bomb")))
+hit_frame_count = len(os.listdir(resource_path("images\\hit")))
+miss_frame_count = len(os.listdir(resource_path("images\\miss")))
+sunk_frame_count = len(os.listdir(resource_path("images\\sunk")))
 
 # Seconds
 BOMB_ANIM_DURATION = 2.0
