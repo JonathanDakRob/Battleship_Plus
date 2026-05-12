@@ -8,13 +8,13 @@ import os
 import math
 import time
 
+from display import *
 import backend
 from config import *
 from entities import * # Import Cells and Ships classes
 from utils import *
 from audio import *
 from animation import *
-from display import *
 from drawing import *
 from state import *
 
@@ -153,7 +153,9 @@ def start_network():
 
 # ------------------------------------ GAMEPLAY LOOP ------------------------------------
 async def main():
+    global multi_bomb_mode, radar_mode, ships_selected, started_running_game, ai_turn_due_time, radar_flash, loading_angle
     running = True
+    waves_playing = False
     while running:
         mouse_pos = pygame.mouse.get_pos()
         game_state = backend.GAME_STATE
@@ -531,12 +533,14 @@ async def main():
                 # If it is the player's turn again, clear any pending AI move
                 ai_turn_due_time = None
 
-        # ------------------ DRAWING ------------------
+        # ------------------ DRAWING + AUDIO ------------------
         draw_background(game_state)
         draw_volume_bar()
         handle_volume_input()
-
-        play_waves()
+        # handle_audio_queue()
+        if waves_playing == False:
+            play_waves()
+            waves_playing = True
 
         if game_state == "MAIN_MENU":
             draw_main_menu(mouse_pos)
@@ -619,9 +623,9 @@ async def main():
             draw_game_over(backend.winner)
             draw_button(mouse_pos, color=(0,255,0), text="Main Menu")
 
-        elif game_state == "SINGLE_PLAYER":
-            draw_message("Single player construction in progress")
-            draw_button(mouse_pos)
+        # elif game_state == "SINGLE_PLAYER":
+        #     draw_message("Single player construction in progress")
+        #     draw_button(mouse_pos)
 
         elif game_state == "SELECT_DIFFICULTY":
             draw_difficulty_selection(mouse_pos)   

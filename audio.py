@@ -6,18 +6,66 @@ from config import bar_rect
 volume = 0.5  # range: 0.0 to 1.0
 dragging = False
 
+
+# ------------------ AUDIO CACHE -----------------
+button_sounds = {
+    1: pygame.mixer.Sound(resource_path("audio/click1.ogg")),
+    2: pygame.mixer.Sound(resource_path("audio/click2.ogg"))
+}
+
+
+# ------------------ AUDIO QUEUE -----------------
+audio_queue = []
+current_audio = None
+
+def add_audio(type):
+    audio_queue.append(type)
+
+# ------------------ QUEUE HANDLER -------------------
+def handle_audio_queue():
+    """
+    Plays one queued audio at a time.
+    Removes the audio from the queue after starting playback.
+    Prevents the same queue entry from replaying repeatedly.
+    """
+
+    # If audio is still playing, wait
+    if pygame.mixer.get_busy():
+        return
+
+    # Nothing to play
+    if not audio_queue:
+        return
+
+    # Get first queued sound
+    audio_type = audio_queue.pop(0)
+
+    # Play it once
+    play_audio(audio_type)
+
 # ------------------ PLAY AUDIO ------------------
+def play_audio(audio_type):
+    """
+    Plays audio/{audio_type}.ogg
+    """
+    global current_audio
+
+    path = resource_path(f"audio/{audio_type}.ogg")
+
+    current_audio = pygame.mixer.Sound(path)
+    current_audio.play()
+
 def play_waves():
     global volume
     if not pygame.mixer.music.get_busy():
+        print("TEST 1: WAVES PLAYING")
         pygame.mixer.music.load(resource_path("audio/waves.ogg"))
         pygame.mixer.music.set_volume(volume)
         pygame.mixer.music.play(-1)
 
 def play_button_click(click, loops=0, maxtime=0, fade_ms=0):
     global volume
-    path = "audio/click" + str(click) + ".ogg"
-    click_sound = pygame.mixer.Sound(resource_path(path))
+    click_sound = button_sounds[click]
     click_sound.set_volume(volume)
     click_sound.play(loops, maxtime, fade_ms)
 
@@ -31,16 +79,7 @@ def play_sound_effect(effect, loops=0, maxtime=0, fade_ms=0):
         sound_effect = pygame.mixer.Sound(resource_path(path))
         sound_effect.set_volume(volume)
         
-        if effect == "falling_bomb":
-            if falling_bomb_channel is None:
-                falling_bomb_channel = sound_effect.play(loops, maxtime, fade_ms)
-            elif not falling_bomb_channel.get_busy():
-                falling_bomb_channel = sound_effect.play(loops, maxtime, fade_ms)
-        else:
-            if miss_hit_channel is None:
-                miss_hit_channel = sound_effect.play(loops, maxtime, fade_ms)
-            elif not miss_hit_channel.get_busy():
-                miss_hit_channel = sound_effect.play(loops, maxtime, fade_ms)
+        sound_effect.play(loops, maxtime, fade_ms)
     except:
         print("SOUND EFFECT ERROR")
 
