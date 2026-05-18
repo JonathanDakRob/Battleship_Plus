@@ -331,8 +331,8 @@ def draw_animated_button(surface, rect, base_color, text, font, mouse_pos, click
     surface.blit(text_surf, (tx, ty))
 
 def draw_main_menu(mouse_pos):
-    font = pygame.font.Font(resource_path("fonts\\PressStart2P-Regular.ttf"), LARGE_FONT_SIZE)
-    button_font = pygame.font.Font(resource_path("fonts\\PressStart2P-Regular.ttf"), SMALL_FONT_SIZE)
+    font = pygame.font.Font(resource_path("assets\\fonts\\PressStart2P-Regular.ttf"), LARGE_FONT_SIZE)
+    button_font = pygame.font.Font(resource_path("assets\\fonts\\PressStart2P-Regular.ttf"), SMALL_FONT_SIZE)
 
     # single_rect = pygame.Rect(WINDOW_WIDTH//2 - 150, WINDOW_HEIGHT//2 - 80, 300, 60)
     # multi_rect = pygame.Rect(WINDOW_WIDTH//2 - 150, WINDOW_HEIGHT//2 + 20, 300, 60)
@@ -380,8 +380,8 @@ def draw_main_menu(mouse_pos):
     return SINGLE_PLAYER_RECT, MULTI_PLAYER_RECT
 
 def draw_difficulty_selection(mouse_pos):
-    font = pygame.font.Font(resource_path("fonts\\PressStart2P-Regular.ttf"), int(LARGE_FONT_SIZE * 0.9))
-    btn_font = pygame.font.Font(resource_path("fonts\\PressStart2P-Regular.ttf"), SMALL_FONT_SIZE)
+    font = pygame.font.Font(resource_path("assets\\fonts\\PressStart2P-Regular.ttf"), int(LARGE_FONT_SIZE * 0.9))
+    btn_font = pygame.font.Font(resource_path("assets\\fonts\\PressStart2P-Regular.ttf"), SMALL_FONT_SIZE)
     title = font.render("Select Difficulty", True, (255, 255, 255))
     screen.blit(title, (WINDOW_WIDTH//2 - title.get_width()//2, WINDOW_HEIGHT//4))
 
@@ -400,7 +400,7 @@ def draw_difficulty_selection(mouse_pos):
 """
 
 def draw_message(message):
-    font = pygame.font.Font(resource_path("fonts\\PressStart2P-Regular.ttf"), LARGE_FONT_SIZE)
+    font = pygame.font.Font(resource_path("assets\\fonts\\PressStart2P-Regular.ttf"), LARGE_FONT_SIZE)
     title = font.render(message,True,(255,255,255))
 
     screen.blit(
@@ -424,8 +424,8 @@ def draw_button(mouse_pos, text="BACK", color=(180, 50, 50), border_rad=0):
     screen.blit(text, (BUTTON_RECT.centerx - text.get_width()//2, BUTTON_RECT.centery - text.get_height()//2))
 
 def draw_waiting_for_player(message, number=0):
-    font = pygame.font.Font(resource_path("fonts\\PressStart2P-Regular.ttf"), SMALL_FONT_SIZE)
-    small_font = pygame.font.Font(resource_path("fonts\\PressStart2P-Regular.ttf"), SMALL_FONT_SIZE // 2)
+    font = pygame.font.Font(resource_path("assets\\fonts\\PressStart2P-Regular.ttf"), SMALL_FONT_SIZE)
+    small_font = pygame.font.Font(resource_path("assets\\fonts\\PressStart2P-Regular.ttf"), SMALL_FONT_SIZE // 2)
     
     if number == 0:
         title = font.render(f"Waiting for Other Player...", True, (255, 255, 255))
@@ -446,8 +446,8 @@ def draw_waiting_for_player(message, number=0):
     )
 
 def draw_ship_selection():
-    font = pygame.font.Font(resource_path("fonts\\PressStart2P-Regular.ttf"), int(SMALL_FONT_SIZE * 0.8))
-    small_font = pygame.font.Font(resource_path("fonts\\PressStart2P-Regular.ttf"), int(SMALL_FONT_SIZE * 0.45))
+    font = pygame.font.Font(resource_path("assets\\fonts\\PressStart2P-Regular.ttf"), int(SMALL_FONT_SIZE * 0.8))
+    small_font = pygame.font.Font(resource_path("assets\\fonts\\PressStart2P-Regular.ttf"), int(SMALL_FONT_SIZE * 0.45))
 
     title_text = font.render("Select Number of Ships (1 - 5)", True, (255, 255, 255))
     instruction_text = small_font.render("Press a number key 1, 2, 3, 4, or 5", True, (200, 200, 200))
@@ -459,8 +459,8 @@ def draw_ship_selection():
     pygame.display.flip()
 
 def draw_game_over(winner):
-    font = pygame.font.Font(resource_path("fonts\\PressStart2P-Regular.ttf"), int(LARGE_FONT_SIZE))
-    small_font = pygame.font.Font(resource_path("fonts\\PressStart2P-Regular.ttf"), int(SMALL_FONT_SIZE * 1.2))
+    font = pygame.font.Font(resource_path("assets\\fonts\\PressStart2P-Regular.ttf"), int(LARGE_FONT_SIZE))
+    small_font = pygame.font.Font(resource_path("assets\\fonts\\PressStart2P-Regular.ttf"), int(SMALL_FONT_SIZE * 1.2))
 
     title = title = font.render(f"GAME OVER", True, (255, 255, 255))
     subtitle = ""
@@ -694,9 +694,9 @@ def draw_status_panel():
     panel_width = panel_right_edge - panel_x
 
     # Fonts
-    panel_font = pygame.font.Font(resource_path("fonts\\PressStart2P-Regular.ttf"), SMALL_FONT_SIZE // 2)
-    header_font = pygame.font.Font(resource_path("fonts\\PressStart2P-Regular.ttf"), SMALL_FONT_SIZE // 2 + 2)
-    value_font = pygame.font.Font(resource_path("fonts\\PressStart2P-Regular.ttf"), SMALL_FONT_SIZE // 2 + 2)
+    panel_font = pygame.font.Font(resource_path("assets\\fonts\\PressStart2P-Regular.ttf"), SMALL_FONT_SIZE // 2)
+    header_font = pygame.font.Font(resource_path("assets\\fonts\\PressStart2P-Regular.ttf"), SMALL_FONT_SIZE // 2 + 2)
+    value_font = pygame.font.Font(resource_path("assets\\fonts\\PressStart2P-Regular.ttf"), SMALL_FONT_SIZE // 2 + 2)
 
     # Colors
     panel_color = (0, 0, 200)
@@ -790,7 +790,7 @@ def draw_status_panel():
 
         # Smaller font for the per-box label so wider words like "SHIPS SUNK"
         # fit inside their slot.
-        label_font = pygame.font.Font(resource_path("fonts\\PressStart2P-Regular.ttf"),
+        label_font = pygame.font.Font(resource_path("assets\\fonts\\PressStart2P-Regular.ttf"),
                                       max(6, SMALL_FONT_SIZE // 3))
 
         max_label_h = 0
@@ -804,11 +804,11 @@ def draw_status_panel():
             # Auto-shrink the value font if the rendered text is wider than the box.
             val_str = str(val)
             val_font_size = SMALL_FONT_SIZE // 2 + 2
-            val_surf = pygame.font.Font(resource_path("fonts\\PressStart2P-Regular.ttf"),
+            val_surf = pygame.font.Font(resource_path("assets\\fonts\\PressStart2P-Regular.ttf"),
                                         val_font_size).render(val_str, True, (200, 30, 30))
             while val_surf.get_width() > box_w - 6 and val_font_size > 6:
                 val_font_size -= 1
-                val_surf = pygame.font.Font(resource_path("fonts\\PressStart2P-Regular.ttf"),
+                val_surf = pygame.font.Font(resource_path("assets\\fonts\\PressStart2P-Regular.ttf"),
                                             val_font_size).render(val_str, True, (200, 30, 30))
             screen.blit(val_surf, (bx + box_w // 2 - val_surf.get_width() // 2,
                                    y + box_w // 2 - val_surf.get_height() // 2))
@@ -843,7 +843,7 @@ def draw_status_panel():
     cursor_y = draw_stats_row(cursor_y, "YOU", you_values)
 
     # ---- Turn timer (kept where it was, bottom of screen) ----
-    timer_font = pygame.font.Font(resource_path("fonts\\PressStart2P-Regular.ttf"), MEDIUM_FONT_SIZE)
+    timer_font = pygame.font.Font(resource_path("assets\\fonts\\PressStart2P-Regular.ttf"), MEDIUM_FONT_SIZE)
     timer_surf = timer_font.render(format_seconds(current_turn_time_left), True, (255, 255, 255))
     screen.blit(timer_surf, BUTTON_RECT.inflate(12, 12))
     
@@ -886,9 +886,9 @@ def draw_time_ran_out(lost_turn):
     # Player ran out of time, other player's turn
     global time_out_start
     duration = 1.8 # display message for this many seconds
-    font = pygame.font.Font(resource_path("fonts\\PressStart2P-Regular.ttf"), int(LARGE_FONT_SIZE * 1.2))
+    font = pygame.font.Font(resource_path("assets\\fonts\\PressStart2P-Regular.ttf"), int(LARGE_FONT_SIZE * 1.2))
     font.set_bold(True)
-    small_font = pygame.font.Font(resource_path("fonts\\PressStart2P-Regular.ttf"), MEDIUM_FONT_SIZE)
+    small_font = pygame.font.Font(resource_path("assets\\fonts\\PressStart2P-Regular.ttf"), MEDIUM_FONT_SIZE)
 
     title = font.render("TIME RAN OUT", True, (139, 0, 0))
     subtitle = None
@@ -1015,7 +1015,7 @@ def draw_background(game_state):
         wave_frame = ((wave_frame + 1) % total_frames) +1
         last_wave_timer = time.monotonic()
 
-    path = "images\\backgrounds\\Battleship_BG_Waves" + str(wave_frame) + ".png"
+    path = "assets\\images\\backgrounds\\Battleship_BG_Waves" + str(wave_frame) + ".png"
     background = pygame.image.load(resource_path(path))
 
     background = pygame.transform.scale(background, (WINDOW_WIDTH, WINDOW_HEIGHT))
@@ -1023,7 +1023,7 @@ def draw_background(game_state):
     
     background2 = None
     if game_state == "MAIN_MENU":
-        background2 = pygame.image.load(resource_path("images\\backgrounds\\Battleship_MainMenuBGShips.png"))
+        background2 = pygame.image.load(resource_path("assets\\images\\backgrounds\\Battleship_MainMenuBGShips.png"))
         background2 = pygame.transform.scale(background2, (WINDOW_WIDTH, WINDOW_HEIGHT))      
     else:
         pass
@@ -1047,10 +1047,10 @@ def get_cell_pixel(grid_id, row, col):
     return x, y
 
 # ------------------ ANIMATIONS ------------------
-bomb_frame_count = len(os.listdir(resource_path("images\\bomb")))
-hit_frame_count = len(os.listdir(resource_path("images\\hit")))
-miss_frame_count = len(os.listdir(resource_path("images\\miss")))
-sunk_frame_count = len(os.listdir(resource_path("images\\sunk")))
+bomb_frame_count = len(os.listdir(resource_path("assets\\images\\bomb")))
+hit_frame_count = len(os.listdir(resource_path("assets\\images\\hit")))
+miss_frame_count = len(os.listdir(resource_path("assets\\images\\miss")))
+sunk_frame_count = len(os.listdir(resource_path("assets\\images\\sunk")))
 
 # Seconds
 BOMB_ANIM_DURATION = 2.0
@@ -1096,33 +1096,33 @@ def draw_animation(screen):
             # This un implemented code will be used to make the animations dynamic in terms of frame count
             # # bomb_frame = math.floor((elapsed / duration)*bomb_frame_count) + 1
             # # if not bomb_frame > bomb_frame_count:
-            # #     image_path = "images\\bomb\\Battleship_Bomb" + str(bomb_frame) + ".png"
+            # #     image_path = "assets\\images\\bomb\\Battleship_Bomb" + str(bomb_frame) + ".png"
             if elapsed < (duration / 5):
-                image_path = "images\\bomb\\Battleship_Bomb1.png"
+                image_path = "assets\\images\\bomb\\Battleship_Bomb1.png"
             elif elapsed < (2* duration / 5):
-                image_path = "images\\bomb\\Battleship_Bomb2.png"
+                image_path = "assets\\images\\bomb\\Battleship_Bomb2.png"
             elif elapsed < (3* duration / 5):
-                image_path = "images\\bomb\\Battleship_Bomb3.png"
+                image_path = "assets\\images\\bomb\\Battleship_Bomb3.png"
             elif elapsed < (4* duration / 5):
-                image_path = "images\\bomb\\Battleship_Bomb4.png"
+                image_path = "assets\\images\\bomb\\Battleship_Bomb4.png"
             else:
                 if anim_type == 1:
                     # Play Splash animation
                     play_sound_effect("splash", maxtime=hitmiss_maxtime_ms, fade_ms=hitmiss_maxtime_ms//2)
-                    image_path = "images\\miss\\Battleship_Splash.png"
+                    image_path = "assets\\images\\miss\\Battleship_Splash.png"
                 else:
                     # Play Bang animation
                     play_sound_effect("bang", maxtime=hitmiss_maxtime_ms, fade_ms=hitmiss_maxtime_ms//2)
-                    image_path = "images\\hit\\Battleship_Bang.png"
+                    image_path = "assets\\images\\hit\\Battleship_Bang.png"
 
         if anim_type == 4:
             # Play RISING SMOKE aniation
             if elapsed < (duration/3):
-                image_path = "images\\sunk\\Battleship_Smoke1.png"
+                image_path = "assets\\images\\sunk\\Battleship_Smoke1.png"
             elif elapsed < (2* duration/3):
-                image_path = "images\\sunk\\Battleship_Smoke2.png"
+                image_path = "assets\\images\\sunk\\Battleship_Smoke2.png"
             else:
-                image_path = "images\\sunk\\Battleship_Smoke3.png"
+                image_path = "assets\\images\\sunk\\Battleship_Smoke3.png"
         
         if anim_type == 5:
             # Timed out animation: Board argument represents the player_id who timed out
@@ -1225,7 +1225,7 @@ dragging = False
 
 def draw_volume_bar():
     # Draw sound icon (placeholder square)
-    icon = pygame.image.load(resource_path("images\\audio\\audio_icon.png")).convert_alpha()
+    icon = pygame.image.load(resource_path("assets\\images\\audio\\audio_icon.png")).convert_alpha()
     icon = pygame.transform.scale(icon, (icon_rect.width, icon_rect.height))
 
     mouse_pos = pygame.mouse.get_pos()
@@ -1266,13 +1266,13 @@ def handle_volume_input():
 def play_waves():
     global volume
     if not pygame.mixer.music.get_busy():
-        pygame.mixer.music.load(resource_path("audio\\waves.ogg"))
+        pygame.mixer.music.load(resource_path("assets\\audio\\waves.ogg"))
         pygame.mixer.music.set_volume(volume)
         pygame.mixer.music.play(-1)
 
 def play_button_click(click, loops=0, maxtime=0, fade_ms=0):
     global volume
-    path = "audio\\click" + str(click) + ".ogg"
+    path = "assets\\audio\\click" + str(click) + ".ogg"
     click_sound = pygame.mixer.Sound(resource_path(path))
     click_sound.set_volume(volume)
     click_sound.play(loops, maxtime, fade_ms)
@@ -1283,7 +1283,7 @@ def play_sound_effect(effect, loops=0, maxtime=0, fade_ms=0):
     #Plays any sound within the audio folder with the of "effect.ogg"
     global volume, falling_bomb_channel, miss_hit_channel
     try:
-        path = "audio\\" + effect + ".ogg"
+        path = "assets\\audio\\" + effect + ".ogg"
         sound_effect = pygame.mixer.Sound(resource_path(path))
         sound_effect.set_volume(volume)
         
