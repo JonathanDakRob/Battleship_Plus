@@ -1,251 +1,229 @@
-#This file handles the server for Battleship
-#server.py
+# server.py  –  WebSocket relay server for Battleship
+#
+# Replaces the old raw-TCP server. Run this on a public host (VPS, Railway,
+# Render, etc.). Players connect via WebSocket; one creates a room and gets a
+# 4-letter code, the other joins with that code.
+#
+# Requirements:
+#   pip install websockets
+#
+# Run:
+#   python server.py
+#
+# Environment variables (optional overrides):
+#   PORT  – listening port (default 5000)
+#   HOST  – bind address  (default 0.0.0.0)
 
-import socket
+import asyncio
 import json
-import threading
+import os
+import random
+import string
 import time
 
-HOST = "0.0.0.0"
-PORT = 5000
+import websockets
 
-clients = []
+HOST = os.environ.get("HOST", "0.0.0.0")
+PORT = int(os.environ.get("PORT", 5000))
 
-# Game related memory
-player1_locked = False
-player2_locked = False
-player_turn = 1
+# rooms[code] = {"players": [ws1, ws2 | None], "locked": [False, False]}
+rooms: dict[str, dict] = {}
 
-GAME_OVER = False
-winner = None
 
-def send(conn, msg):
-    conn.sendall((json.dumps(msg) + "\n").encode())
+# ── helpers ──────────────────────────────────────────────────────────────────
 
-def handle_message(conn, player_index, message):
-    global player1_locked, player2_locked, GAME_OVER, winner
+def make_code(length: int = 4) -> str:
+    """Return a unique uppercase room code."""
+    chars = string.ascii_uppercase + string.digits
+    while True:
+        code = "".join(random.choices(chars, k=length))
+        if code not in rooms:
+            return code
 
-    # Validate message shape before dispatching. The server is mostly a relay,
-    # but one malformed payload should not break the whole match thread.
-    if not isinstance(message, dict) or "type" not in message:
-        print(f"SERVER: Ignoring malformed message: {message}")
-        return
 
-    # Do not try to relay gameplay messages unless both player sockets still
-    # exist. This avoids index errors and bad relays after a disconnect.
-    if len(clients) < 2:
-        print("SERVER: Cannot relay message; opponent is not connected.")
-        return
-
-    opponent = clients[1 - player_index]
-
-    if message["type"] == "game_state":
-        state = message["state"]
-        sender = message["sender"]
-        print(f"SERVER: Player {sender} reached state: {state}")
-
-    elif message["type"] == "ship_count":
-        new_message = {
-            "type": "set_ship_count",
-            "count": message["count"]
-        }
-        send(conn,new_message)
-        send(opponent,new_message)
-
-    elif message["type"] == "place_ships":
-        print("SERVER: Ships Placed and Locked")
-        if player_index == 0:
-            player1_locked = True
-        else:
-            player2_locked = True
-
-        if player1_locked and player2_locked:
-            all_locked_msg = {
-                "type": "all_ships_locked"
-            }
-            send(conn,all_locked_msg)
-            send(opponent,all_locked_msg)
-
-    elif message["type"] == "bomb":
-        row = message["row"]
-        col = message["col"]
-        coord = (row,col)
-        print(f"SERVER: Player {player_index} shoots opponent at {coord}")
-        send(opponent,message)
-
-    elif message["type"] == "hit_status":
-        if message["all_sunk"] == True:
-            GAME_OVER = True
-        if message["status"] == False:
-            changeTurn_msg = {
-                "type": "change_turn"
-            }
-            send(opponent,changeTurn_msg)
-            send(conn,changeTurn_msg)
-        send(opponent,message)
-
-    elif message["type"] == "multi_bomb":
-        # The attacker already computed the 3x3 target area in backend.py.
-        # The server's job is just to forward that attack request to the opponent.
-        print(f"SERVER: Player {player_index + 1} used multi_bomb")
-        send(opponent,message)
-
-    elif message["type"] == "multi_bomb_result":
-        # The defender sends back one combined result for the whole 3x3 attack.
-        # If all ships are sunk after this attack, the game is now over.
-        if message["all_sunk"] == True:
-            GAME_OVER = True
-
-        # Send the full multi-bomb result back to the attacking player
-        # so their board can update all hit/miss cells at once.
-        send(opponent,message)
-
-        # Multi-bomb always consumes the turn, so after it finishes,
-        # both clients receive a change_turn message.
-        changeTurn_msg = {
-            "type": "change_turn"
-        }
-        send(opponent, changeTurn_msg)
-        send(conn, changeTurn_msg)
-
-    elif message["type"] == "radar_scan":
-        print(f"SERVER: Player {player_index + 1} used radar scan")
-        send(opponent, message)
-
-    elif message["type"] == "radar_result":
-        send(opponent, message)
-
-    # Broadcast the timeout event to both clients so they can stay synchronized
-    # on whose turn was forfeited.
-    elif message["type"] == "turn_timeout":
-        # This player's turn expired, so switch turns for both clients.
-        print(f"SERVER: Player {message['player_id']} turn timed out")
-        
-        send(opponent, message)
-        send(conn, message)
-
-    elif message["type"] == "time_ran_out":
-        # Player's turn timed out
-
-        send(opponent, message)
-        send(conn, message)
-
-    elif message["type"] == "game_over":
-        GAME_OVER = True
-        winner = message["winner"]
-
-        send(opponent,message)
-        send(conn,message)
-
-    else:
-        print(f'SERVER: Player {player_index} sending {message["type"]} message to opponent')
-        send(opponent,message)
-
-running = False
-
-def handle_client(player_index):
-    global clients, running
-    buffer = ""
-    message = ""
-
-    conn = clients[player_index]
-
-    global p2_game_state, player1_locked, player2_locked
-    global GAME_OVER, p2_game_state, player1_locked, player2_locked
-
-    while running:
-        try:
-            data = conn.recv(4096).decode()
-            if not data:
-                print("SERVER ERROR: Did not receive data")
-                break
-
-            buffer += data
-
-            # Messages are newline-delimited JSON. Buffer partial socket reads until a
-            # complete message arrives, then process one message at a time.
-            while "\n" in buffer:
-                line, buffer = buffer.split("\n", 1)
-                if not line.strip():
-                    continue
-                message = json.loads(line)
-                print(f"SERVER: Received from Player {player_index + 1}: {message}")
-                handle_message(conn, player_index, message)
-
-        except Exception as e:
-            print("SERVER: Client disconnected:", e)
-            break
-
-    # Clean up
+async def send_json(ws, obj: dict) -> None:
     try:
-        conn.close()
-    except:
+        await ws.send(json.dumps(obj))
+    except Exception:
         pass
 
-    if conn in clients:
-        clients.remove(conn)
 
-    # Notify the remaining client that the session is no longer valid so the
-    # frontend can leave the multiplayer match cleanly.
-    for other in clients[:]:
-        try:
-            send(other, {"type": "opponent_disconnected"})
-        except:
-            pass
+async def relay(sender_ws, room: dict, msg: dict) -> None:
+    """Forward msg to the other player in the room."""
+    players = room["players"]
+    for ws in players:
+        if ws is not None and ws is not sender_ws:
+            await send_json(ws, msg)
 
-    running = False
 
-def main():
-    global clients, player1_locked, player2_locked, running
-    global GAME_OVER, winner
+# ── per-connection handler ────────────────────────────────────────────────────
 
-    clients = []
-    player1_locked = False
-    player2_locked = False
-    GAME_OVER = False
-    winner = None
+async def handle(ws):
+    """Manage one WebSocket connection for its entire lifetime."""
+    player_index: int | None = None
+    room_code: str | None = None
+    room: dict | None = None
 
-    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    server.bind((HOST, PORT))
-    server.listen(2)
+    print(f"SERVER: New connection from {ws.remote_address}")
 
-    print("SERVER: Waiting for players...")
+    try:
+        async for raw in ws:
+            try:
+                msg = json.loads(raw)
+            except json.JSONDecodeError:
+                print("SERVER: Ignoring non-JSON message")
+                continue
 
-    # Accept two players
-    for i in range(2):
-        player_id = i+1
-        conn, addr = server.accept()
-        print(f"SERVER: Player {player_id} connected from {addr}")
-        clients.append(conn)
+            if not isinstance(msg, dict) or "type" not in msg:
+                print(f"SERVER: Ignoring malformed message: {msg}")
+                continue
 
-        # Send player ID to client
-        msg = {
-            "type": "player_id",
-            "player": player_id
-        }
-        send(conn,msg)
+            mtype = msg["type"]
+            print(f"SERVER: [{room_code or '?'}] P{(player_index or -1) + 1} → {mtype}")
 
-    running = True
-    # Start a thread for each player
-    threading.Thread(target=handle_client, args=(0,), daemon=True).start()
-    threading.Thread(target=handle_client, args=(1,), daemon=True).start()
+            # ── lobby messages ────────────────────────────────────────────
 
-    start_msg = {
-        "type": "start_game"
-    }
+            if mtype == "create_room":
+                # Player 1 creates a new room and receives the code.
+                room_code = make_code()
+                room = {
+                    "players": [ws, None],
+                    "locked": [False, False],
+                    "game_over": False,
+                }
+                rooms[room_code] = room
+                player_index = 0
+                await send_json(ws, {"type": "room_created", "code": room_code, "player": 1})
+                print(f"SERVER: Room {room_code} created")
 
-    for conn in clients:
-        send(conn,start_msg)
+            elif mtype == "join_room":
+                code = str(msg.get("code", "")).upper().strip()
+                if code not in rooms:
+                    await send_json(ws, {"type": "error", "message": "Room not found."})
+                    continue
+                target = rooms[code]
+                if target["players"][1] is not None:
+                    await send_json(ws, {"type": "error", "message": "Room is full."})
+                    continue
 
-    print("SERVER: Both players connected. Game starting.")
+                target["players"][1] = ws
+                room_code = code
+                room = target
+                player_index = 1
 
-    # Keep server alive
-    while True:
-        if len(clients) < 2:
-            running = False
-            server.close()
-            print("SERVER: Shutting down...")
-            time.sleep(1) # Give server time to shut down
-            break
-        time.sleep(0.1)
+                # Tell the joining player their ID.
+                await send_json(ws, {"type": "player_id", "player": 2})
+                # Tell the host their ID and that the opponent joined.
+                host_ws = room["players"][0]
+                await send_json(host_ws, {"type": "player_id", "player": 1})
+                await send_json(host_ws, {"type": "opponent_joined"})
+
+                # Start the game for both players.
+                for p_ws in room["players"]:
+                    await send_json(p_ws, {"type": "start_game"})
+
+                print(f"SERVER: Room {room_code} is full – game starting")
+
+            # ── in-game relay messages ────────────────────────────────────
+
+            elif room is None:
+                # Any game message before the player is in a room is invalid.
+                print("SERVER: Game message received before joining a room – ignoring")
+
+            elif mtype == "ship_count":
+                new_msg = {"type": "set_ship_count", "count": msg["count"]}
+                await send_json(ws, new_msg)
+                await relay(ws, room, new_msg)
+
+            elif mtype == "place_ships":
+                print(f"SERVER: Player {player_index + 1} locked ships")
+                room["locked"][player_index] = True
+                if all(room["locked"]):
+                    for p_ws in room["players"]:
+                        await send_json(p_ws, {"type": "all_ships_locked"})
+
+            elif mtype == "bomb":
+                row, col = msg.get("row"), msg.get("col")
+                print(f"SERVER: Player {player_index + 1} bombs ({row},{col})")
+                await relay(ws, room, msg)
+
+            elif mtype == "hit_status":
+                if msg.get("all_sunk"):
+                    room["game_over"] = True
+                if not msg.get("status"):
+                    change = {"type": "change_turn"}
+                    await send_json(ws, change)
+                    await relay(ws, room, change)
+                await relay(ws, room, msg)
+
+            elif mtype == "multi_bomb":
+                print(f"SERVER: Player {player_index + 1} used multi_bomb")
+                await relay(ws, room, msg)
+
+            elif mtype == "multi_bomb_result":
+                if msg.get("all_sunk"):
+                    room["game_over"] = True
+                await relay(ws, room, msg)
+                change = {"type": "change_turn"}
+                await send_json(ws, change)
+                await relay(ws, room, change)
+
+            elif mtype == "radar_scan":
+                print(f"SERVER: Player {player_index + 1} used radar scan")
+                await relay(ws, room, msg)
+
+            elif mtype == "radar_result":
+                await relay(ws, room, msg)
+
+            elif mtype == "turn_timeout":
+                print(f"SERVER: Player {msg.get('player_id')} turn timed out")
+                await send_json(ws, msg)
+                await relay(ws, room, msg)
+
+            elif mtype == "time_ran_out":
+                await send_json(ws, msg)
+                await relay(ws, room, msg)
+
+            elif mtype == "game_state":
+                print(f"SERVER: Player {msg.get('sender')} state → {msg.get('state')}")
+
+            elif mtype == "game_over":
+                room["game_over"] = True
+                await send_json(ws, msg)
+                await relay(ws, room, msg)
+
+            else:
+                # Generic relay fallback – forward unknown message types so new
+                # features added to the game clients work without server changes.
+                print(f"SERVER: Relaying unknown type '{mtype}'")
+                await relay(ws, room, msg)
+
+    except websockets.exceptions.ConnectionClosedOK:
+        print(f"SERVER: Player {(player_index or -1) + 1} disconnected cleanly")
+    except websockets.exceptions.ConnectionClosedError as exc:
+        print(f"SERVER: Player {(player_index or -1) + 1} connection error: {exc}")
+    except Exception as exc:
+        print(f"SERVER: Unexpected error: {exc}")
+    finally:
+        # Notify the opponent and clean up the room.
+        if room is not None and player_index is not None:
+            room["players"][player_index] = None
+            opponent = room["players"][1 - player_index]
+            if opponent is not None:
+                await send_json(opponent, {"type": "opponent_disconnected"})
+            # Remove room if both slots are empty.
+            if all(p is None for p in room["players"]):
+                rooms.pop(room_code, None)
+                print(f"SERVER: Room {room_code} removed")
+
+
+# ── entry point ───────────────────────────────────────────────────────────────
+
+async def main():
+    print(f"SERVER: Listening on ws://{HOST}:{PORT}")
+    async with websockets.serve(handle, HOST, PORT):
+        await asyncio.Future()  # run forever
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

@@ -185,13 +185,18 @@ async def main():
                         play_button_click(1)
                         button_click_times[id(MULTI_PLAYER_RECT)] = time.monotonic()
                         backend.update_game_state("LOADING")
-                        backend.update_game_mode(2)
+                        # backend.update_game_mode(2)
 
-                        threading.Thread(target=start_network, daemon=True).start()
+                        # threading.Thread(target=start_network, daemon=True).start()
 
             # ------------------ LOADING STATE ------------------
             elif game_state == "LOADING":
-                pass
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    if BUTTON_RECT.collidepoint(event.pos):
+                        play_button_click(2)
+                        reset_local_ui_state()
+                        backend.reset_game()
+                        backend.update_game_mode("MAIN_MENU")
 
             # ------------------ WAITING FOR PLAYERS TO CONNECT STATE ------------------
             elif game_state == "WAITING_FOR_PLAYERS_TO_CONNECT":
@@ -549,8 +554,10 @@ async def main():
             draw_waiting_for_player(f"Waiting for opponent to connect...", opponent_id)
             
         elif game_state == "LOADING":
-            draw_loading_circle(loading_angle)
-            loading_angle += 0.1
+            draw_message("Multi-player Unavailable For Web Version", 12)
+            draw_button(mouse_pos)
+            # draw_loading_circle(loading_angle)
+            # loading_angle += 0.1
         
         elif game_state == "SELECT_SHIPS":
             # Single player

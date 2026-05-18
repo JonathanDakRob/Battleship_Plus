@@ -141,8 +141,8 @@ def draw_difficulty_selection(mouse_pos):
         screen.blit(text, (rect.centerx - text.get_width()//2, rect.centery - text.get_height()//2))
 """
 
-def draw_message(message):
-    font = pygame.font.Font(resource_path("fonts/PressStart2P-Regular.ttf"), LARGE_FONT_SIZE)
+def draw_message(message, size=LARGE_FONT_SIZE):
+    font = pygame.font.Font(resource_path("fonts/PressStart2P-Regular.ttf"), size)
     title = font.render(message,True,(255,255,255))
 
     screen.blit(
